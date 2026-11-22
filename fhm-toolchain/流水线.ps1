@@ -10,7 +10,10 @@ param(
   [ValidateSet('both','leaf','gale')][string]$Target = 'both',
   [switch]$NoSmoke,
   [string]$OutDir,
-  [string]$PaperCommit = ''
+  [string]$PaperCommit = '',
+  # 编完顺手发一版（打标签 + Release + bug 报告），要 GITHUB_TOKEN
+  [switch]$Release,
+  [string]$Token = ''
 )
 
 $ErrorActionPreference = 'Continue'
@@ -200,6 +203,11 @@ if ($Target -in @('both','gale') -and $results['leaf'] -ne $false) {
       Log "Gale 档产出 $galeOut ($size MB，模式 $($r.Mode))"
       $results['gale'] = $true
       if (-not $NoSmoke) { Invoke-Smoke $galeOut 'gale' | Out-Null }
+      if ($Release) {
+        Log '== [5] 发版'
+        $slog = Join-Path (Join-Path $OutDir 'gale-smoke') 'server.log'
+        & (Join-Path $here '发布.ps1') -Jar $galeOut -Flavor 'leafgale' -Token $Token -SmokeLog $slog
+      }
     } else { Log "Gale 档编译失败（$($r.Mode)），看 gale-build.log"; $results['gale'] = $false }
   }
 }
