@@ -72,8 +72,10 @@ $smokeLines = @()
 if ($SmokeLog -and (Test-Path -LiteralPath $SmokeLog)) {
   $done = Select-String -LiteralPath $SmokeLog -Pattern 'Done \(' | Select-Object -Last 1
   $err = Select-String -LiteralPath $SmokeLog -Pattern 'GaleGlobalConfiguration|NullPointerException|Failed to handle packet' | Select-Object -First 1
+  $uid = Select-String -LiteralPath $SmokeLog -Pattern 'UUID of player' | Select-Object -Last 1
   if ($done) { $smokeLines += "- 起服：$($done.Line.Trim())" }
   if ($err) { $smokeLines += "- 异常：$($err.Line.Trim())" } else { $smokeLines += '- 未出现空指针或丢包异常' }
+  if ($uid) { $smokeLines += "- 登录：$($uid.Line.Trim())" } else { $smokeLines += '- 日志里没有 UUID of player，登录流程未验证' }
 }
 if ($smokeLines.Count -eq 0) { $smokeLines = @('- 本次未附冒烟日志，验证记录以手动测试为准') }
 
@@ -145,14 +147,16 @@ $body = @{ tag_name = $Version; name = "FHM-Core 26.3 $Version"; body = $report;
 $release = Invoke-RestMethod -Uri "$api/releases" -Method Post -Headers $headers -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($body))
 Say "Release 建好：$($release.html_url)"
 
-function Send-Asset([string]$url, [string]$file, [string]$name, [string]$type) {
-  $u = "$url?name=$([uri]::EscapeDataString($name))"
+function Send-Asset([string]$base, [string]$file, [string]$name, [string]$type) {
+  # 附件名走 ASCII，中文名会被 GitHub 截掉一部分
+  $u = "$base?name=$([uri]::EscapeDataString($name))"
   Invoke-RestMethod -Uri $u -Method Post -Headers @{ Authorization = "token $Token" } -ContentType $type -InFile $file -TimeoutSec 900 | Out-Null
 }
 
-Send-Asset $release.upload_url.Replace('{?name,label}', '') $Jar (Split-Path $Jar -Leaf) 'application/java-archive'
+$uploadBase = "https://uploads.github.com/repos/$Repo/releases/$($release.id)/assets"
+Send-Asset $uploadBase $Jar (Split-Path $Jar -Leaf) 'application/java-archive'
 Say "jar 已上传：$(Split-Path $Jar -Leaf)"
-Send-Asset $release.upload_url.Replace('{?name,label}', '') $reportPath "$Version-BUG报告.md" 'text/markdown; charset=utf-8'
+Send-Asset $uploadBase $reportPath "$Version-bug-report.md" 'text/markdown; charset=utf-8'
 Say '报告已上传'
 
 Say "完成：$($release.html_url)"

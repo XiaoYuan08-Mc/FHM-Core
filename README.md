@@ -25,4 +25,23 @@ pwsh fhm-toolchain/流水线.ps1 -Target gale
 
 合并过程、剔了哪些补丁、踩过的坑在 [docs/FHM-Core-整合报告.md](docs/FHM-Core-整合报告.md)。
 
+## 发版
+
+每次出一个新包就发一版，版本号 `26.3-r<n>`，n 往后自动数：
+
+```powershell
+$env:GITHUB_TOKEN = '<有 repo 权限的 PAT>'
+pwsh fhm-toolchain/发布.ps1 -Jar ..\FHM-Core-26.3.jar -Flavor leafgale -SmokeLog <冒烟日志>
+```
+
+它干四件事：生成 `docs/releases/<版本>.md`（这一版修了什么、怎么验的、还剩哪些已知问题），提交这份报告，打标签推上去，建 GitHub Release 并把 jar 和报告挂成附件。
+
+已知问题统一维护在 [docs/已知问题.md](docs/已知问题.md)，发版时自动抄进报告，修掉的记得从那里删掉。
+
+编完想直接发，可以给流水线加 `-Release`：
+
+```powershell
+pwsh fhm-toolchain/流水线.ps1 -Target gale -Release -Token $env:GITHUB_TOKEN
+```
+
 许可：仓库自己跟 Purpur 走 MIT，合进来的 Paper、Leaf、Gale 那些代码还是各自的原许可（GPL-3.0）。每个来源的版权和出处写在 [`NOTICE`](NOTICE)，上游原来的 README 留在 `README-PURPUR.md`，贡献指南留在 `CONTRIBUTING-PURPUR.md`。
