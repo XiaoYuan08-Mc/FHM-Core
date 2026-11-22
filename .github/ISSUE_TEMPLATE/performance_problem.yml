@@ -25,7 +25,7 @@ body:
   - type: input
     attributes:
       label: spark 链接
-      description: `/spark profiler --timeout 300` 的输出链接，要链接不要截图
+      description: "跑 /spark profiler --timeout 300 后生成的链接，要链接不要截图"
     validations:
       required: true
   - type: textarea
