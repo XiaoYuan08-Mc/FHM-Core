@@ -2,7 +2,7 @@
 
 繁花梦的服务端内核。底子是 Purpur 26.3（`ver/26.3`，`ecee149`），把 Leaf 的 141 条优化和 Gale 的 44 条合了进去。
 
-编出来 56.3MB。本机 i3-12100F 起服 8~9 秒，日志干净（唯一那条 `No key layers` 是 flat 测试世界的事，正常世界不出）。
+编出来 56.4MB。本机 i3-12100F 起服 8~9 秒，日志干净（唯一那条 `No key layers` 是 flat 测试世界的事，正常世界不出）。
 
 - `FHM-Core-26.3.jar`：Leaf + Gale 全量
 - 另编一档只打 Leaf 的，出问题时用来判断是哪边的锅
@@ -27,16 +27,14 @@ pwsh fhm-toolchain/流水线.ps1 -Target gale
 
 ## 发版
 
-每次出一个新包就发一版，版本号 `26.3-r<n>`，n 往后自动数：
+版本号 `26.3-r<n>`，n 从远端标签往后数。正文先手写 `docs/releases/<版本>.md`，只写两段：`## bug` 和 `## 修复`。脚本直接拿这个文件当发行正文，没写就不让发。
 
 ```powershell
 $env:GITHUB_TOKEN = '<有 repo 权限的 PAT>'
-pwsh fhm-toolchain/发布.ps1 -Jar ..\FHM-Core-26.3.jar -Flavor leafgale -SmokeLog <冒烟日志>
+pwsh fhm-toolchain/发布.ps1 -Jar ..\FHM-Core-26.3.jar -Flavor leafgale
 ```
 
-它干四件事：生成 `docs/releases/<版本>.md`（这一版修了什么、怎么验的、还剩哪些已知问题），提交这份报告，打标签推上去，建 GitHub Release 并把 jar 和报告挂成附件。
-
-已知问题统一维护在 [docs/已知问题.md](docs/已知问题.md)，发版时自动抄进报告，修掉的记得从那里删掉。
+它读正文、提交这份文件、打标签推上去、建 GitHub Release，把 jar 和正文挂成附件。
 
 编完想直接发，可以给流水线加 `-Release`：
 
@@ -44,4 +42,4 @@ pwsh fhm-toolchain/发布.ps1 -Jar ..\FHM-Core-26.3.jar -Flavor leafgale -SmokeL
 pwsh fhm-toolchain/流水线.ps1 -Target gale -Release -Token $env:GITHUB_TOKEN
 ```
 
-许可：仓库自己跟 Purpur 走 MIT，合进来的 Paper、Leaf、Gale 那些代码还是各自的原许可（GPL-3.0）。每个来源的版权和出处写在 [`NOTICE`](NOTICE)，上游原来的 README 留在 `README-PURPUR.md`，贡献指南留在 `CONTRIBUTING-PURPUR.md`。
+许可：仓库跟 Purpur 走 MIT，合进来的 Paper、Leaf、Gale 那些代码还是各自的原许可（GPL-3.0）。每个来源的版权和出处写在 [`NOTICE`](NOTICE)。
