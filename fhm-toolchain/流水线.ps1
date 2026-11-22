@@ -79,11 +79,61 @@ function Invoke-CompileWithFallback([string]$LogFile) {
   return @{ Ok = $false; Mode = 'failed' }
 }
 
+function Write-VarInt($list, [int]$v) {
+  while ($true) {
+    if (($v -band 0xFFFFFF80) -eq 0) { $list.Add([byte]$v); break }
+    $list.Add([byte](($v -band 0x7F) -bor 0x80)); $v = $v -shr 7
+  }
+}
+
+# 冒烟只证明"能起服"，登录期的问题（Gale 配置 shim 空指针这类）必须真连一次才会暴露
+function Invoke-LoginProbe([string]$Dir, [int]$Port) {
+  $logFile = Join-Path $Dir 'server.log'
+  try {
+    $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $Port)
+    $st = $c.GetStream(); $st.ReadTimeout = 3000
+    $hs = [System.Collections.Generic.List[byte]]::new()
+    Write-VarInt $hs 0
+    Write-VarInt $hs 1            # 协议号随意，Login 流程不看它
+    Write-VarInt $hs 1; $hs.Add([byte][char]'t')
+    $hs.Add(0); $hs.Add(0)
+    Write-VarInt $hs 2            # next state = login
+    $frame = [System.Collections.Generic.List[byte]]::new()
+    Write-VarInt $frame $hs.Count
+    $frame.AddRange($hs)
+    $st.Write($frame.ToArray(), 0, $frame.Count)
+
+    $ls = [System.Collections.Generic.List[byte]]::new()
+    Write-VarInt $ls 0
+    Write-VarInt $ls 7
+    foreach ($ch in 'FHMProbe'.ToCharArray()) { $ls.Add([byte][char]$ch) }
+    for ($z = 0; $z -lt 16; $z++) { $ls.Add([byte]0) }
+    $f2 = [System.Collections.Generic.List[byte]]::new()
+    Write-VarInt $f2 $ls.Count
+    $f2.AddRange($ls)
+    $st.Write($f2.ToArray(), 0, $f2.Count)
+    $c.Close()
+    Start-Sleep -Seconds 6
+    $hit = Select-String -LiteralPath $logFile -Pattern 'GaleGlobalConfiguration','NullPointerException','Failed to handle packet' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($hit) { Log "登录探测[$Tag] 命中: $($hit.Line.Trim())"; return $false }
+    $joined = Select-String -LiteralPath $logFile -Pattern 'UUID of player','logged in with' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($joined) { Log "登录探测[$Tag] 通过: $($joined.Line.Trim())" } else { Log "登录探测[$Tag] 未看到登录成功，也未出现空指针" }
+    return $true
+  } catch { Log "登录探测[$Tag] 连接失败: $($_.Exception.Message)"; return $false }
+}
+
 function Invoke-Smoke([string]$JarPath, [string]$Tag) {
   $d = Join-Path $OutDir "$Tag-smoke"
   New-Item -ItemType Directory -Force -Path $d | Out-Null
   Copy-Item -LiteralPath $JarPath -Destination (Join-Path $d 'server.jar') -Force
   'eula=true' | Set-Content (Join-Path $d 'eula.txt') -Encoding utf8
+  @'
+level-type=minecraft\:flat
+online-mode=false
+server-port=25599
+view-distance=3
+spawn-protection=0
+'@ | Set-Content (Join-Path $d 'server.properties') -Encoding utf8
   Remove-Item (Join-Path $d 'server.log'),(Join-Path $d 'server.err') -Force -ErrorAction SilentlyContinue
   $p = Start-Process -FilePath $javaExe -ArgumentList '-Xms1G','-Xmx2G','-jar','server.jar','--nogui' `
         -WorkingDirectory $d -RedirectStandardOutput (Join-Path $d 'server.log') -RedirectStandardError (Join-Path $d 'server.err') -PassThru
@@ -98,8 +148,11 @@ function Invoke-Smoke([string]$JarPath, [string]$Tag) {
     }
     if ($p.HasExited) { break }
   }
+  if ($done) {
+    Log "冒烟[$Tag] 通过：$($done.Trim())"
+    if (-not (Invoke-LoginProbe $d 25599)) { Log "!! 登录探测[$Tag] 失败，看 $logFile" }
+  } else { Log "冒烟[$Tag] 失败，看 $logFile" }
   if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
-  if ($done) { Log "冒烟[$Tag] 通过：$($done.Trim())" } else { Log "冒烟[$Tag] 失败，看 $logFile" }
   return [bool]$done
 }
 
@@ -156,3 +209,4 @@ Log "== 结束 $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 $body = @("# 构建流水线报告`n", "时间：$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n") + ($report | ForEach-Object { "- $_" })
 $body | Set-Content -LiteralPath $reportPath -Encoding utf8
 Write-Host "报告写入 $reportPath"
+

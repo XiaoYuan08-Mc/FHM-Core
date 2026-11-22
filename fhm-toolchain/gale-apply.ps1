@@ -147,6 +147,11 @@ public class GaleGlobalConfiguration extends ConfigurationPart {
     private static GaleGlobalConfiguration instance;
 
     public static GaleGlobalConfiguration get() {
+        // 原来的 GaleConfigurations 被裁掉了，没人调 set()，这里惰性建一个默认实例，
+        // 否则登录阶段 tickTimeout 取 misc 字段会直接 NPE 踢人
+        if (instance == null) {
+            instance = new GaleGlobalConfiguration();
+        }
         return instance;
     }
 
