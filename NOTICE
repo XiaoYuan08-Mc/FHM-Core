@@ -1,0 +1,30 @@
+# 来源与版权
+
+FHM-Core
+Copyright (c) 2026 FHM-Core (XiaoYuan08-Mc)
+
+这个仓库里的补丁和代码不是凭空写的，是几个上游项目拼起来的。各部分版权归原项目，许可各按各的走，下面按来源列清楚。
+
+## PurpurMC / Purpur
+
+MIT，全文见 `LICENSE`。仓库骨架、patch 体系、build 脚本、`purpur-server` 的目录结构都来自这里，`README-PURPUR.md`、`CONTRIBUTING-PURPUR.md` 是上游原文存档。
+
+## PaperMC / Paper
+
+GPL-3.0。Purpur 本身是 Paper 的下游，`build-data`、服务器基座那些来自这里。
+
+## Leaf
+
+GPL-3.0（以 Leaf 仓库声明为准）。`purpur-server/minecraft-patches/features/0099-Leaf-Optimizations.patch` 是从 Leaf 26.3 的 features 补丁里挑 141 条合并成的，`purpur-server/src/minecraft/java/org/dreeam/leaf/util/BlockMasks.java` 是直接复制过来的。
+
+## Gale
+
+GPL-3.0（以 Gale 仓库声明为准）。44 条 per-file 补丁、`org/galemc/` 下的垫片类来自 Gale `dev/26.3` 分支，实际落地的清单记在 `fhm-toolchain/gale-integrated.txt`。
+
+## 自己写的部分
+
+`fhm-toolchain/` 里的构建脚本、品牌改动、编译修复和冲突处理，按本仓库 MIT 许可。
+
+---
+
+上游的 GPL 代码放到 MIT 仓库里，严格讲是两套许可并存。补丁文件保留了原始路径和上下文，出处可追溯；如果哪部分要单独再分发，请按对应上游的 GPL 条款处理，不要只看根目录的 MIT。

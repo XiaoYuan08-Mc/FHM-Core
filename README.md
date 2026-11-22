@@ -19,4 +19,4 @@ pwsh fhm-toolchain/流水线.ps1 -Target gale
 
 合并过程、剔了哪些补丁、踩过的坑在 [docs/FHM-Core-整合报告.md](docs/FHM-Core-整合报告.md)。
 
-许可：仓库自己跟 Purpur 走 MIT，合进来的 Paper、Leaf、Gale 那些代码还是各自的原许可（GPL-3.0）。上游原来的 README 留在 `README-PURPUR.md`。
+许可：仓库自己跟 Purpur 走 MIT，合进来的 Paper、Leaf、Gale 那些代码还是各自的原许可（GPL-3.0）。每个来源的版权和出处写在 [`NOTICE`](NOTICE)，上游原来的 README 留在 `README-PURPUR.md`，贡献指南留在 `CONTRIBUTING-PURPUR.md`。
