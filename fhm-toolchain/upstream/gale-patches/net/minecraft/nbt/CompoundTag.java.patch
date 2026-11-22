@@ -1,0 +1,17 @@
+--- a/net/minecraft/nbt/CompoundTag.java
++++ b/net/minecraft/nbt/CompoundTag.java
+@@ -170,10 +170,11 @@
+ 
+     @Override
+     public void write(final DataOutput output) throws IOException {
+-        for (String key : this.tags.keySet()) {
+-            Tag tag = this.tags.get(key);
+-            writeNamedTag(key, tag, output);
++        // Gale start - Local code optimization - CompoundTag.write() (iterate over entry set)
++        for (Entry<String, Tag> entry : this.tags.entrySet()) {
++            writeNamedTag(entry.getKey(), entry.getValue(), output);
+         }
++        // Gale end - Local code optimization - CompoundTag.write() (iterate over entry set)
+ 
+         output.writeByte(0);
+     }

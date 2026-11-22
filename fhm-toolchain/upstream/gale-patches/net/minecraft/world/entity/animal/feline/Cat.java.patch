@@ -1,0 +1,59 @@
+--- a/net/minecraft/world/entity/animal/feline/Cat.java
++++ b/net/minecraft/world/entity/animal/feline/Cat.java
+@@ -100,6 +100,7 @@
+     public Cat(final EntityType<? extends Cat> type, final Level level) {
+         super(type, level);
+         this.reassessTameGoals();
++        this.gale$eventDriven_canRemoveWhenFarAway_update(); // Gale - Event-driven - Cat.canRemoveWhenFarAway
+     }
+ 
+     @Override
+@@ -467,12 +468,38 @@
+ 
+     @Override
+     public boolean removeWhenFarAway(final double distSqr) {
+-        return !this.isTame() && this.tickCount > 2400;
++        // Gale start - Event-driven - Cat.canRemoveWhenFarAway
++        return this.gale$eventDriven_canRemoveWhenFarAway;
++    }
++
++    private boolean gale$eventDriven_canRemoveWhenFarAway;
++
++    public void gale$eventDriven_canRemoveWhenFarAway_update() {
++        boolean newValue = this.gale$eventDriven_canRemoveWhenFarAway_compute();
++        if (this.gale$eventDriven_canRemoveWhenFarAway != newValue) {
++            this.gale$eventDriven_canRemoveWhenFarAway = newValue;
++            this.gale$eventDriven_canRemoveWhenFarAway_postUpdate();
++        }
++    }
++
++    @Override
++    public void setTickCount(int tickCount) {
++        int oldTickCount = this.tickCount;
++        super.setTickCount(tickCount);
++        if ((tickCount > 2400) != (oldTickCount > 2400)) {
++            this.gale$eventDriven_canRemoveWhenFarAway_update();
++        }
++    }
++
++    private boolean gale$eventDriven_canRemoveWhenFarAway_compute() {
++        return this.tickCount > 2400 && !this.isTame(); // Re-order checks
++        // Gale end - Event-driven - Cat.canRemoveWhenFarAway
+     }
+ 
+     @Override
+     public void setTame(final boolean isTame, final boolean includeSideEffects) {
+         super.setTame(isTame, includeSideEffects);
++        this.gale$eventDriven_canRemoveWhenFarAway_update(); // Gale - Event-driven - Cat.canRemoveWhenFarAway
+         this.reassessTameGoals();
+     }
+ 
+@@ -556,7 +583,7 @@
+ 
+                 BlockPos ownerPos = this.ownerPlayer.blockPosition();
+                 BlockState ownerPosState = this.cat.level().getBlockState(ownerPos);
+-                if (ownerPosState.is(BlockTags.BEDS)) {
++                if (ownerPosState.isAny(org.dreeam.leaf.util.BlockMasks.BEDS_TAG)) { // Gale - Pre-compute - Common BlockState predicates - Apply
+                     this.goalPos = ownerPosState.getOptionalValue(BedBlock.FACING)
+                         .map(bedDir -> ownerPos.relative(bedDir.getOpposite()))
+                         .orElseGet(() -> new BlockPos(ownerPos));

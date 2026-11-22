@@ -1,0 +1,49 @@
+--- a/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
++++ b/net/minecraft/world/level/levelgen/NoiseBasedChunkGenerator.java
+@@ -69,11 +69,18 @@
+     private static final DecimalFormat DEBUG_DENSITY_FORMAT = new DecimalFormat("0.000", DecimalFormatSymbols.getInstance(Locale.ROOT));
+     private final Holder<NoiseGeneratorSettings> settings;
+     private final Supplier<Aquifer.FluidPicker> globalFluidPicker;
++    private final org.galemc.gale.util.function.MemoizedBooleanSupplier hasCarvers; // Gale - Cache - NoiseBasedChunkGenerator.applyCarvers()
++    private int cachedSeaLevel = Integer.MIN_VALUE; // Gale - Cache - NoiseBasedChunkGenerator.getSeaLevel()
+ 
+     public NoiseBasedChunkGenerator(final BiomeSource biomeSource, final Holder<NoiseGeneratorSettings> settings) {
+         super(biomeSource);
+         this.settings = settings;
+         this.globalFluidPicker = Suppliers.memoize(() -> createFluidPicker(settings.value()));
++        // Gale start - Cache - NoiseBasedChunkGenerator.applyCarvers()
++        this.hasCarvers = new org.galemc.gale.util.function.MemoizedBooleanSupplier(
++                () -> biomeSource.possibleBiomes().stream().anyMatch(biome -> this.generationSettingsGetter.apply(biome).getCarvers().iterator().hasNext())
++        );
++        // Gale end - Cache - NoiseBasedChunkGenerator.applyCarvers()
+     }
+ 
+     private static Aquifer.FluidPicker createFluidPicker(final NoiseGeneratorSettings settings) {
+@@ -238,6 +245,13 @@
+         final MaterialRule materialRule
+     ) {
+         if (!SharedConstants.DEBUG_DISABLE_CARVERS && !SharedConstants.debugVoidTerrain(chunk.getPos())) {
++            // Gale start - Local code optimization - NoiseBasedChunkGenerator.applyCarvers() - Skip empty carver passes
++            if (!this.hasCarvers.getAsBoolean()) {
++                RandomSupport.generateUniqueSeed();
++                ((ProtoChunk) chunk).getOrCreateCarvingMask();
++                return;
++            }
++            // Gale end - Local code optimization - NoiseBasedChunkGenerator.applyCarvers() - Skip empty carver passes
+             BiomeResolver biomeResolver = this.biomeSource.createUncachedResolver(randomState);
+             WorldgenRandom random = new WorldgenRandom(new LegacyRandomSource(RandomSupport.generateUniqueSeed()));
+             int range = 8;
+@@ -500,7 +514,12 @@
+ 
+     @Override
+     public int getSeaLevel() {
+-        return this.settings.value().seaLevel();
++        // Gale start - Cache - NoiseBasedChunkGenerator.getSeaLevel()
++        if (this.cachedSeaLevel == Integer.MIN_VALUE) {
++            this.cachedSeaLevel = this.settings.value().seaLevel();
++        }
++        return this.cachedSeaLevel;
++        // Gale end - Cache - NoiseBasedChunkGenerator.getSeaLevel()
+     }
+ 
+     @Override

@@ -1,0 +1,42 @@
+--- a/net/minecraft/world/level/block/RespawnAnchorBlock.java
++++ b/net/minecraft/world/level/block/RespawnAnchorBlock.java
+@@ -156,14 +156,36 @@
+     private void explode(final BlockState state, final ServerLevel level, final BlockPos pos) {
+         org.bukkit.block.BlockState blockState = org.bukkit.craftbukkit.block.CraftBlock.at(level, pos).getState(); // CraftBukkit - capture BlockState before remove block
+         level.removeBlock(pos, false);
+-        boolean anyWaterNeighbors = Direction.Plane.HORIZONTAL.stream().map(pos::relative).anyMatch(neighborPos -> isWaterThatWouldFlow(neighborPos, level));
+-        final boolean inWater = anyWaterNeighbors || level.getFluidState(pos.above()).is(FluidTags.WATER);
++        // Gale start - Do less work - RespawnAnchorBlock.explode()
++        // boolean anyWaterNeighbors = Direction.Plane.HORIZONTAL.stream().map(pos::relative).anyMatch(neighborPos -> isWaterThatWouldFlow(neighborPos, level));
++        // final boolean inWater = anyWaterNeighbors || level.getFluidState(pos.above()).is(FluidTags.WATER);
++        // Gale end - Do less work - RespawnAnchorBlock.explode()
+         ExplosionDamageCalculator damageCalculator = new ExplosionDamageCalculator() {
++            // Gale start - Do less work - RespawnAnchorBlock.explode()
++            private boolean gale$inWater_cached;
++            private boolean gale$inWater_isCached;
++
++            private boolean gale$inWater(final Level level, final BlockPos secondPos) {
++                if (!this.gale$inWater_isCached) {
++                    this.gale$inWater_isCached = true;
++                    for (Direction direction : Direction.Plane.HORIZONTAL) {
++                        final BlockPos neighborPos = secondPos.relative(direction);
++                        if (isWaterThatWouldFlow(neighborPos, level)) {
++                            this.gale$inWater_cached = true;
++                            return true;
++                        }
++                    }
++                    this.gale$inWater_cached = level.getFluidState(secondPos.above()).is(FluidTags.WATER);
++                }
++                return this.gale$inWater_cached;
++            }
++            // Gale end - Do less work - RespawnAnchorBlock.explode()
++
+             @Override
+             public Optional<Float> getBlockExplosionResistance(
+                 final Explosion explosion, final BlockGetter levelx, final BlockPos testPos, final BlockState block, final FluidState fluid
+             ) {
+-                return testPos.equals(pos) && inWater
++                return testPos.equals(pos) && gale$inWater(level, pos) // Gale - Do less work - RespawnAnchorBlock.explode()
+                     ? Optional.of(Blocks.WATER.getExplosionResistance())
+                     : super.getBlockExplosionResistance(explosion, levelx, testPos, block, fluid);
+             }

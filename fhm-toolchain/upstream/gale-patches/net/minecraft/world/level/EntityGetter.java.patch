@@ -1,0 +1,48 @@
+--- a/net/minecraft/world/level/EntityGetter.java
++++ b/net/minecraft/world/level/EntityGetter.java
+@@ -119,18 +119,38 @@
+     // Paper end - Affects Spawning API
+ 
+     default @Nullable Player getNearestPlayer(final double x, final double y, final double z, final double range, final @Nullable Predicate<Entity> predicate) {
+-        double best = -1.0;
++        // Gale start - Local code optimization - EntityGetter.getNearestPlayer()
++        double distance;
++        if (range < 0.0) {
++            distance = Double.MAX_VALUE;
++        } else {
++            distance = range * range;
++        }
+         Player result = null;
+ 
+-        for (Player player : this.players()) {
+-            if (predicate == null || predicate.test(player)) {
+-                double dist = player.distanceToSqr(x, y, z);
+-                if ((range < 0.0 || dist < range * range) && (best == -1.0 || dist < best)) {
+-                    best = dist;
+-                    result = player;
++        List<? extends Player> players = this.players();
++        if (predicate == null) {
++            for (int i = 0, size = players.size(); i < size; i++) {
++                Player target = players.get(i);
++                double targetDist = target.distanceToSqr(x, y, z);
++                if (targetDist < distance) {
++                    distance = targetDist;
++                    result = target;
++                }
++            }
++        } else {
++            for (int i = 0, size = players.size(); i < size; i++) {
++                Player target = players.get(i);
++                if (predicate.test(target)) {
++                    double targetDist = target.distanceToSqr(x, y, z);
++                    if (targetDist < distance) {
++                        distance = targetDist;
++                        result = target;
++                    }
+                 }
+             }
+         }
++        // Gale end - Local code optimization - EntityGetter.getNearestPlayer()
+ 
+         return result;
+     }

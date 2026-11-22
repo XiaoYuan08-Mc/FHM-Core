@@ -1,0 +1,19 @@
+--- a/net/minecraft/world/level/dimension/end/EnderDragonFight.java
++++ b/net/minecraft/world/level/dimension/end/EnderDragonFight.java
+@@ -181,6 +181,7 @@
+     }
+ 
+     public void tick() {
++        if (!org.galemc.gale.async.SimulationFlag.REAL) return; // Gale - Speculative execution based on next tick simulation - Simulate next tick
+         this.dragonEvent.setVisible(!this.dragonKilled);
+         if (++this.ticksSinceLastPlayerScan >= 20) {
+             this.updatePlayers();
+@@ -470,7 +471,7 @@
+             .registryAccess()
+             .lookup(Registries.FEATURE)
+             .flatMap(registry -> registry.get(EndFeatures.END_GATEWAY_DELAYED))
+-            .ifPresent(endGateway -> endGateway.value().place(this.level, this.level.getChunkSource().getGenerator(), RandomSource.create(), pos));
++            .ifPresent(endGateway -> endGateway.value().place(this.level, this.level.getChunkSource().getGenerator(), this.level.getRandom(), pos)); // Gale - Reduce allocations - RandomSource
+     }
+ 
+     public void spawnExitPortal(final boolean activated) {

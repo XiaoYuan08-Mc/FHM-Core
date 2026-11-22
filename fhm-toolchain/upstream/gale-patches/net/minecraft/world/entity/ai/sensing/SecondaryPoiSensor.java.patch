@@ -1,0 +1,40 @@
+--- a/net/minecraft/world/entity/ai/sensing/SecondaryPoiSensor.java
++++ b/net/minecraft/world/entity/ai/sensing/SecondaryPoiSensor.java
+@@ -22,17 +22,33 @@
+ 
+     @Override
+     protected void doTick(final ServerLevel level, final Villager body) {
++        // Gale start - Do less work - SecondaryPoiSensor.doTick() (skip secondary POI sensor if absent)
++        var secondaryPoi = body.getVillagerData().profession().value().secondaryPoi();
++        if (secondaryPoi.isEmpty()) {
++            body.getBrain().eraseMemory(MemoryModuleType.SECONDARY_JOB_SITE);
++            return;
++        }
++        // Gale end - Do less work - SecondaryPoiSensor.doTick() (skip secondary POI sensor if absent)
+         ResourceKey<Level> dimensionType = level.dimension();
+         BlockPos center = body.blockPosition();
+         List<GlobalPos> jobSites = Lists.newArrayList();
+-        int horizontalSearch = 4;
++        // Gale start - Local code optimization - SecondaryPoiSensor.doTick() (re-use BlockPos instance)
++        final int centerX = center.getX();
++        final int centerY = center.getY();
++        final int centerZ = center.getZ();
++        final BlockPos.MutableBlockPos mutableTestPos = new BlockPos.MutableBlockPos();
++        // Gale end - Local code optimization - SecondaryPoiSensor.doTick() (re-use BlockPos instance)
+ 
+-        if (!body.getVillagerData().profession().value().secondaryPoi().isEmpty()) // Paper - Perf: Only scan world if Villager profession has secondary POI
+         for (int x = -4; x <= 4; x++) {
++            mutableTestPos.setX(centerX + x); // Gale - Local code optimization - SecondaryPoiSensor.doTick() (re-use BlockPos instance)
+             for (int y = -2; y <= 2; y++) {
++                mutableTestPos.setY(centerY + y); // Gale - Local code optimization - SecondaryPoiSensor.doTick() (re-use BlockPos instance)
+                 for (int z = -4; z <= 4; z++) {
+-                    BlockPos testPos = center.offset(x, y, z);
+-                    if (body.getVillagerData().profession().value().secondaryPoi().contains(level.getBlockState(testPos).getBlock())) {
++                    // Gale start - Local code optimization - SecondaryPoiSensor.doTick() (re-use BlockPos instance)
++                    mutableTestPos.setZ(centerZ + z);
++                    if (secondaryPoi.contains(level.getBlockState(mutableTestPos).getBlock())) { // Gale - Do less work - SecondaryPoiSensor.doTick() (skip secondary POI sensor if absent)
++                        BlockPos testPos = mutableTestPos.immutable();
++                        // Gale end - Local code optimization - SecondaryPoiSensor.doTick() (re-use BlockPos instance)
+                         jobSites.add(GlobalPos.of(dimensionType, testPos));
+                     }
+                 }

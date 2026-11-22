@@ -1,0 +1,10 @@
+--- a/net/minecraft/world/TickRateManager.java
++++ b/net/minecraft/world/TickRateManager.java
+@@ -61,6 +61,6 @@
+     }
+ 
+     public boolean isEntityFrozen(final Entity entity) {
+-        return !this.runsNormally() && !(entity instanceof Player) && entity.countPlayerPassengers() <= 0;
++        return !this.runsNormally() && !(entity instanceof Player) && entity.gale$eventDriven_playerPassengerCount_isZero(); // Gale - Event-driven - Entity.playerPassengerCount
+     }
+ }

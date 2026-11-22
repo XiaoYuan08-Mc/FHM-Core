@@ -1,0 +1,10 @@
+--- a/net/minecraft/world/level/block/Blocks.java
++++ b/net/minecraft/world/level/block/Blocks.java
+@@ -5943,6 +5943,7 @@
+                     state.initCache();
+                 }
+             }
++            ((org.galemc.gale.registry.blockstate.BlockStateIdMapper) Block.BLOCK_STATE_REGISTRY).trimToSize(); // Gale - Intrusive values - Global block state palette id
+         });
+     }
+ }

@@ -1,0 +1,51 @@
+--- a/net/minecraft/world/entity/decoration/painting/PaintingVariant.java
++++ b/net/minecraft/world/entity/decoration/painting/PaintingVariant.java
+@@ -14,7 +14,47 @@
+ import net.minecraft.resources.RegistryFixedCodec;
+ import net.minecraft.util.ExtraCodecs;
+ 
+-public record PaintingVariant(int width, int height, Identifier assetId, Optional<Component> title, Optional<Component> author) {
++// Gale start - Intrusive values - Registry elements - Value to id - Implement
++public final class PaintingVariant extends org.galemc.gale.registry.idawarevalue.FieldIdAwareRegistryValue {
++    private final int width;
++    private final int height;
++    private final Identifier assetId;
++    private final Optional<Component> title;
++    private final Optional<Component> author;
++    public PaintingVariant(int width, int height, Identifier assetId, Optional<Component> title, Optional<Component> author) {
++        this.width = width;
++        this.height = height;
++        this.assetId = assetId;
++        this.title = title;
++        this.author = author;
++    }
++    public int width() { return this.width; }
++    public int height() { return this.height; }
++    public Identifier assetId() { return this.assetId; }
++    public Optional<Component> title() { return this.title; }
++    public Optional<Component> author() { return this.author; }
++
++    private int gale$cached_hashCode; // Gale - Cache - PaintingVariant.hashCode()
++
++    @Override
++    public boolean equals(Object obj) {
++        return this == obj || obj instanceof PaintingVariant other && this.width == other.width && this.height == other.height && this.assetId.equals(other.assetId) && this.title.equals(other.title) && this.author.equals(other.author);
++    }
++
++    @Override
++    public int hashCode() {
++        int hashCode = this.gale$cached_hashCode;
++        if (hashCode == 0) {
++            hashCode = 1 + width;
++            hashCode = 31 * hashCode + height;
++            hashCode = 31 * hashCode + this.assetId.hashCode();
++            hashCode = 31 * hashCode + this.title.hashCode();
++            hashCode = 31 * hashCode + this.author.hashCode();
++            this.gale$cached_hashCode = hashCode;
++        }
++        return hashCode;
++    }
++    // Gale end - Intrusive values - Registry elements - Value to id - Implement
+     public static final Codec<PaintingVariant> DIRECT_CODEC = RecordCodecBuilder.create(
+         i -> i.group(
+                 ExtraCodecs.intRange(1, 16).fieldOf("width").forGetter(PaintingVariant::width),

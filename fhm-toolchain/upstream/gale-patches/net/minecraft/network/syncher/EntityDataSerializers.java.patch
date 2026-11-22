@@ -1,0 +1,46 @@
+--- a/net/minecraft/network/syncher/EntityDataSerializers.java
++++ b/net/minecraft/network/syncher/EntityDataSerializers.java
+@@ -50,7 +50,7 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ public class EntityDataSerializers {
+-    private static final CrudeIncrementalIntIdentityHashBiMap<EntityDataSerializer<?>> SERIALIZERS = CrudeIncrementalIntIdentityHashBiMap.create(16);
++    private static final it.unimi.dsi.fastutil.objects.ObjectArrayList<EntityDataSerializer<?>> SERIALIZERS = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>(); // Gale - Intrusive values - EntityDataSerializers.SERIALIZERS
+     public static final EntityDataSerializer<Byte> BYTE = EntityDataSerializer.forValueType(ByteBufCodecs.BYTE);
+     public static final EntityDataSerializer<Integer> INT = EntityDataSerializer.forValueType(ByteBufCodecs.VAR_INT);
+     public static final EntityDataSerializer<Long> LONG = EntityDataSerializer.forValueType(ByteBufCodecs.VAR_LONG);
+@@ -77,7 +77,7 @@
+         }
+     };
+     // Paper end - do not obfuscate items sent as entity data
+-    public static final EntityDataSerializer<ItemStack> ITEM_STACK = new EntityDataSerializer<ItemStack>() {
++    public static final EntityDataSerializer<ItemStack> ITEM_STACK = new EntityDataSerializer.AbstractEntityDataSerializer<ItemStack>() { // Gale - Intrusive values - EntityDataSerializers.SERIALIZERS
+         @Override
+         public StreamCodec<? super RegistryFriendlyByteBuf, ItemStack> codec() {
+             return OVERSIZED_ITEM_CODEC; // Paper - do not obfuscate items sent as entity data
+@@ -170,15 +170,16 @@
+     public static final EntityDataSerializer<DyeColor> DYE_COLOR = EntityDataSerializer.forValueType(DyeColor.STREAM_CODEC);
+ 
+     public static void registerSerializer(final EntityDataSerializer<?> serializer) {
++        serializer.setIndexInList(SERIALIZERS.size()); // Gale - Intrusive values - EntityDataSerializers.SERIALIZERS
+         SERIALIZERS.add(serializer);
+     }
+ 
+     public static @Nullable EntityDataSerializer<?> getSerializer(final int id) {
+-        return SERIALIZERS.byId(id);
++        return SERIALIZERS.get(id); // Gale - Intrusive values - EntityDataSerializers.SERIALIZERS
+     }
+ 
+     public static int getSerializedId(final EntityDataSerializer<?> serializer) {
+-        return SERIALIZERS.getId(serializer);
++        return serializer.getIndexInList(); // Gale - Intrusive values - EntityDataSerializers.SERIALIZERS
+     }
+ 
+     private EntityDataSerializers() {
+@@ -229,5 +230,6 @@
+         registerSerializer(RESOLVABLE_PROFILE);
+         registerSerializer(HUMANOID_ARM);
+         registerSerializer(DYE_COLOR);
++        SERIALIZERS.trim(); // Gale - Intrusive values - EntityDataSerializers.SERIALIZERS
+     }
+ }

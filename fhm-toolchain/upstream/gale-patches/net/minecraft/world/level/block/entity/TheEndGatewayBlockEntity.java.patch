@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
+@@ -251,7 +251,7 @@
+     }
+ 
+     private static void spawnGatewayPortal(final ServerLevel level, final BlockPos portalPos, final EndGatewayFeature feature) {
+-        feature.place(level, level.getChunkSource().getGenerator(), RandomSource.create(), portalPos);
++        feature.place(level, level.getChunkSource().getGenerator(), level.getRandom(), portalPos); // Gale - Reduce allocations - RandomSource
+     }
+ 
+     @Override

@@ -1,0 +1,65 @@
+--- a/net/minecraft/world/entity/projectile/arrow/AbstractArrow.java
++++ b/net/minecraft/world/entity/projectile/arrow/AbstractArrow.java
+@@ -182,12 +182,13 @@
+ 
+     @Override
+     public void tick() {
++        final Level level = this.level(); // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level
+         boolean physicsEnabled = !this.isNoPhysics();
+         Vec3 movement = this.getDeltaMovement();
+         BlockPos blockPos = this.blockPosition();
+-        BlockState blockState = this.level().getBlockState(blockPos);
++        BlockState blockState = level.getBlockState(blockPos); // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level
+         if (!blockState.isAir() && physicsEnabled) {
+-            VoxelShape shape = blockState.getCollisionShape(this.level(), blockPos);
++            VoxelShape shape = blockState.getCollisionShape(level, blockPos); // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level
+             if (!shape.isEmpty()) {
+                 Vec3 position = this.position();
+ 
+@@ -210,7 +211,7 @@
+         }
+ 
+         if (this.isInGround() && physicsEnabled) {
+-            if (!this.level().isClientSide()) {
++            if (true) { // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level - isClientSide is always false
+                 if (this.lastState != blockState && this.shouldFall()) {
+                     this.startFalling();
+                 } else {
+@@ -223,12 +224,12 @@
+                 this.applyEffectsFromBlocks();
+             }
+ 
+-            if (!this.level().isClientSide()) {
++            if (true) { // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level - isClientSide is always false
+                 this.setSharedFlagOnFire(this.getRemainingFireTicks() > 0);
+             }
+         } else {
+             // Paper start - tick life regardless after X seconds
+-            final io.papermc.paper.configuration.type.number.IntOr.Disabled maxArrowDespawnInvulnerability = this.level().paperConfig().entities.spawning.maxArrowDespawnInvulnerability;
++            final io.papermc.paper.configuration.type.number.IntOr.Disabled maxArrowDespawnInvulnerability = level.paperConfig().entities.spawning.maxArrowDespawnInvulnerability; // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level
+             if (maxArrowDespawnInvulnerability.enabled() && this.tickCount > maxArrowDespawnInvulnerability.intValue()) this.tickDespawn();
+             // Paper end - tick life regardless after X seconds
+             this.inGroundTime = 0;
+@@ -240,7 +241,7 @@
+ 
+             if (this.isCritArrow()) {
+                 for (int i = 0; i < 4; i++) {
+-                    this.level()
++                    level // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level
+                         .addParticle(
+                             ParticleTypes.CRIT,
+                             originalPosition.x + movement.x * i / 4.0,
+@@ -265,10 +266,9 @@
+             this.setYRot(lerpRotation(this.getYRot(), yRot));
+             this.checkLeftOwner();
+             if (physicsEnabled) {
+-                BlockHitResult blockHitResult = this.level()
+-                    .clipIncludingBorder(
+-                        new ClipContext(originalPosition, originalPosition.add(movement), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this)
+-                    );
++                BlockHitResult blockHitResult = level.clipIncludingBorder( // Gale - Local code optimization - Variable extraction - AbstractArrow.tick() - level
++                    new ClipContext(originalPosition, originalPosition.add(movement), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this)
++                );
+                 this.stepMoveAndHit(blockHitResult);
+             } else {
+                 this.setPos(originalPosition.add(movement));

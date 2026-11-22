@@ -1,0 +1,36 @@
+--- a/net/minecraft/world/entity/raid/Raid.java
++++ b/net/minecraft/world/entity/raid/Raid.java
+@@ -132,6 +132,7 @@
+     private Raid.RaidStatus status;
+     private int celebrationTicks;
+     private Optional<BlockPos> waveSpawnPos = Optional.empty();
++    private boolean isBarDirty; // Gale - Do less work - Raid.updateBossbar()
+ 
+     public Raid(final BlockPos center, final Difficulty difficulty) {
+         this.active = true;
+@@ -284,6 +285,12 @@
+     }
+ 
+     public void tick(final ServerLevel level) {
++        // Gale start - Do less work - Raid.updateBossbar()
++        if (this.isBarDirty) {
++            this.updateBossbarInternal();
++            this.isBarDirty = false;
++        }
++        // Gale end - Do less work - Raid.updateBossbar()
+         if (!this.isStopped()) {
+             if (this.status == Raid.RaidStatus.ONGOING) {
+                 boolean oldActive = this.active;
+@@ -616,6 +623,12 @@
+     }
+ 
+     public void updateBossbar() {
++        // Gale start - Do less work - Raid.updateBossbar()
++        this.isBarDirty = true;
++    }
++
++    private void updateBossbarInternal() {
++        // Gale end - Do less work - Raid.updateBossbar()
+         this.raidEvent.setProgress(Mth.clamp(this.getHealthOfLivingRaiders() / this.totalHealth, 0.0F, 1.0F));
+     }
+ 

@@ -1,0 +1,16 @@
+--- a/net/minecraft/server/ReloadableServerResources.java
++++ b/net/minecraft/server/ReloadableServerResources.java
+@@ -124,5 +124,13 @@
+     public void updateComponentsAndStaticRegistryTags() {
+         this.postponedTags.forEach(Registry.PendingTags::apply);
+         this.newComponents.forEach(DataComponentInitializers.PendingComponents::apply);
++        // Gale start - Pre-compute - Common BlockState predicates - Set
++        for (net.minecraft.world.level.block.Block block : net.minecraft.core.registries.BuiltInRegistries.BLOCK) {
++            for (net.minecraft.world.level.block.state.BlockState state : block.getStateDefinition().getPossibleStates()) {
++                state.initPredicateFlags();
++                state.gale$precompute_pathType = net.minecraft.world.level.pathfinder.WalkNodeEvaluator.gale$precompute_getPathTypeFromState(state); // Gale - Pre-compute - WalkNodeEvaluator.getPathTypeFromState()
++            }
++        }
++        // Gale end - Pre-compute - Common BlockState predicates - Set
+     }
+ }

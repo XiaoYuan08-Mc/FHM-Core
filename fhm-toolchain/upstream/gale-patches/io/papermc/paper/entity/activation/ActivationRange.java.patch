@@ -1,0 +1,36 @@
+--- a/io/papermc/paper/entity/activation/ActivationRange.java
++++ b/io/papermc/paper/entity/activation/ActivationRange.java
+@@ -122,6 +122,7 @@
+      * @param world
+      */
+     public static void activateEntities(final Level world) {
++        if (!org.galemc.gale.async.SimulationFlag.REAL) return; // Gale - Speculative execution based on next tick simulation - Simulate next tick
+         final int miscActivationRange = world.spigotConfig.miscActivationRange;
+         final int raiderActivationRange = world.spigotConfig.raiderActivationRange;
+         final int animalActivationRange = world.spigotConfig.animalActivationRange;
+@@ -149,14 +150,17 @@
+             }
+ 
+             final int worldHeight = world.getHeight();
+-            ActivationRange.maxBB = player.getBoundingBox().inflate(maxRange, worldHeight, maxRange);
+-            ActivationType.MISC.boundingBox = player.getBoundingBox().inflate(miscActivationRange, worldHeight, miscActivationRange);
+-            ActivationType.RAIDER.boundingBox = player.getBoundingBox().inflate(raiderActivationRange, worldHeight, raiderActivationRange);
+-            ActivationType.ANIMAL.boundingBox = player.getBoundingBox().inflate(animalActivationRange, worldHeight, animalActivationRange);
+-            ActivationType.MONSTER.boundingBox = player.getBoundingBox().inflate(monsterActivationRange, worldHeight, monsterActivationRange);
+-            ActivationType.WATER.boundingBox = player.getBoundingBox().inflate(waterActivationRange, worldHeight, waterActivationRange);
+-            ActivationType.FLYING_MONSTER.boundingBox = player.getBoundingBox().inflate(flyingActivationRange, worldHeight, flyingActivationRange);
+-            ActivationType.VILLAGER.boundingBox = player.getBoundingBox().inflate(villagerActivationRange, worldHeight, villagerActivationRange);
++            // Gale start - Local code optimization - Variable extraction - ActivationRange.activateEntities() - playerBoundingBox
++            final AABB playerBoundingBox = player.getBoundingBox();
++            ActivationRange.maxBB = playerBoundingBox.inflate(maxRange, worldHeight, maxRange);
++            ActivationType.MISC.boundingBox = playerBoundingBox.inflate(miscActivationRange, worldHeight, miscActivationRange);
++            ActivationType.RAIDER.boundingBox = playerBoundingBox.inflate(raiderActivationRange, worldHeight, raiderActivationRange);
++            ActivationType.ANIMAL.boundingBox = playerBoundingBox.inflate(animalActivationRange, worldHeight, animalActivationRange);
++            ActivationType.MONSTER.boundingBox = playerBoundingBox.inflate(monsterActivationRange, worldHeight, monsterActivationRange);
++            ActivationType.WATER.boundingBox = playerBoundingBox.inflate(waterActivationRange, worldHeight, waterActivationRange);
++            ActivationType.FLYING_MONSTER.boundingBox = playerBoundingBox.inflate(flyingActivationRange, worldHeight, flyingActivationRange);
++            ActivationType.VILLAGER.boundingBox = playerBoundingBox.inflate(villagerActivationRange, worldHeight, villagerActivationRange);
++            // Gale end - Local code optimization - Variable extraction - ActivationRange.activateEntities() - playerBoundingBox
+ 
+             final List<Entity> entities = world.getEntities((Entity) null, ActivationRange.maxBB, e -> true);
+             final boolean tickMarkers = world.paperConfig().entities.markers.tick;

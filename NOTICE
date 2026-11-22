@@ -21,6 +21,16 @@ GPL-3.0（以 Leaf 仓库声明为准）。`purpur-server/minecraft-patches/feat
 
 GPL-3.0（以 Gale 仓库声明为准）。44 条 per-file 补丁、`org/galemc/` 下的垫片类来自 Gale `dev/26.3` 分支，实际落地的清单记在 `fhm-toolchain/gale-integrated.txt`。
 
+## 收进仓库的上游素材
+
+为了让脚本换台机器也能跑，下面这些东西原样放在仓库里，没做改动：
+
+- `fhm-toolchain/upstream/gale-patches/`：Gale `dev/26.3` 的 158 条 per-file 补丁原件
+- `fhm-toolchain/upstream/gale-src/org/galemc/`：Gale 的 32 个自有类，脚本裁完只留补丁真正引用的部分
+- `fhm-toolchain/upstream/leaf/BlockMasks.java`：Leaf 的掩码工具类
+
+它们仍然是上游项目的版权，GPL-3.0，放进这个 MIT 仓库不改变它们自己的许可。
+
 ## 自己写的部分
 
 `fhm-toolchain/` 里的构建脚本、品牌改动、编译修复和冲突处理，按本仓库 MIT 许可。

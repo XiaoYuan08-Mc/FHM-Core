@@ -1,0 +1,238 @@
+--- a/net/minecraft/server/level/ChunkMap.java
++++ b/net/minecraft/server/level/ChunkMap.java
+@@ -138,7 +138,7 @@
+     private final ChunkStatusUpdateListener chunkStatusListener;
+     private final ChunkMap.DistanceManager distanceManager;
+     private final PlayerMap playerMap = new PlayerMap();
+-    public final Int2ObjectMap<ChunkMap.TrackedEntity> entityMap = new Int2ObjectOpenHashMap<>();
++    public final Int2ObjectMap<ChunkMap.TrackedEntity> entityMap = new it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap<>(); // Gale - Collections - ChunkMap.entityMap
+     private final Long2ByteMap chunkTypeCache = new Long2ByteOpenHashMap();
+     // Paper - rewrite chunk system
+     public int serverViewDistance;
+@@ -1109,12 +1109,12 @@
+ 
+     public boolean isTrackedByAnyPlayer(final Entity entity) {
+         ChunkMap.TrackedEntity trackedEntity = this.entityMap.get(entity.getId());
+-        return trackedEntity != null && !trackedEntity.seenBy.isEmpty();
++        return trackedEntity != null && !trackedEntity.seenByList.isEmpty(); // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+     }
+ 
+     public void forEachEntityTrackedBy(final ServerPlayer player, final Consumer<Entity> consumer) {
+         for (ChunkMap.TrackedEntity entity : this.entityMap.values()) {
+-            if (entity.seenBy.contains(player.connection)) {
++            if (entity.seenByPackedArray.get(player.connection.gale$packedWordIndex, player.connection.gale$packedWordMask)) { // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+                 consumer.accept(entity.entity);
+             }
+         }
+@@ -1194,7 +1194,10 @@
+         private final Entity entity;
+         private final int range;
+         private SectionPos lastSectionPos;
+-        public final Set<ServerPlayerConnection> seenBy = new it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet<>(); // Paper - Perf: optimise map impl
++        // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++        public final List<net.minecraft.server.network.ServerGamePacketListenerImpl> seenByList = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>(2);
++        public final org.galemc.gale.util.collection.packed.PackedBooleanArray seenByPackedArray = org.galemc.gale.util.collection.packed.PackedBooleanArray.createEmpty();
++        // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
+ 
+         // Paper start - optimise entity tracker
+         private long lastChunkUpdate = -1L;
+@@ -1229,58 +1232,87 @@
+ 
+             if (lastChunkUpdate != currChunkUpdate || lastTrackedChunk != chunk) {
+                 // need to purge any players possible not in the chunk list
+-                for (final ServerPlayerConnection conn : new java.util.ArrayList<>(this.seenBy)) {
+-                    final ServerPlayer player = conn.getPlayer();
+-                    if (!players.contains(player)) {
+-                        this.removePlayer(player);
++                // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++                if (!this.seenByList.isEmpty()) {
++                    int writeI = 0;
++                    int size = this.seenByList.size();
++                    for (int readI = 0; readI < size; readI++) {
++                        net.minecraft.server.network.ServerGamePacketListenerImpl conn = this.seenByList.get(readI);
++                        final ServerPlayer player = conn.getPlayer();
++                        if (players.contains(player)) {
++                            if (readI != writeI) {
++                                this.seenByList.set(writeI, conn);
++                            }
++                            writeI++;
++                        } else {
++                            this.seenByPackedArray.unsetUnsafe(conn.gale$packedWordIndex, conn.gale$packedWordMask);
++                            this.afterRemovePlayer(player, readI == size - 1 && writeI == 0);
++                        }
++                    }
++                    for (int removeI = this.seenByList.size() - 1; removeI >= writeI; removeI--) {
++                        this.seenByList.remove(removeI);
+                     }
+                 }
++                // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
+             }
+         }
+ 
+         @Override
+         public final void moonrise$removeNonTickThreadPlayers() {
+-            boolean foundToRemove = false;
+-            for (final ServerPlayerConnection conn : this.seenBy) {
+-                if (!ca.spottedleaf.moonrise.common.util.TickThread.isTickThreadFor(conn.getPlayer())) {
+-                    foundToRemove = true;
+-                    break;
+-                }
+-            }
+-
+-            if (!foundToRemove) {
+-                return;
+-            }
+-
+-            for (final ServerPlayerConnection conn : new java.util.ArrayList<>(this.seenBy)) {
+-                ServerPlayer player = conn.getPlayer();
+-                if (!ca.spottedleaf.moonrise.common.util.TickThread.isTickThreadFor(player)) {
+-                    this.removePlayer(player);
+-                }
+-            }
++            // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++            if (!this.seenByList.isEmpty()) {
++                int writeI = 0;
++                int size = this.seenByList.size();
++                for (int readI = 0; readI < size; readI++) {
++                    net.minecraft.server.network.ServerGamePacketListenerImpl conn = this.seenByList.get(readI);
++                    final ServerPlayer player = conn.getPlayer();
++                    if (ca.spottedleaf.moonrise.common.util.TickThread.isTickThreadFor(player)) {
++                        if (readI != writeI) {
++                            this.seenByList.set(writeI, conn);
++                        }
++                        writeI++;
++                    } else {
++                        this.seenByPackedArray.unsetUnsafe(conn.gale$packedWordIndex, conn.gale$packedWordMask);
++                        this.afterRemovePlayer(player, readI == size - 1 && writeI == 0);
++                    }
++                }
++                for (int removeI = this.seenByList.size() - 1; removeI >= writeI; removeI--) {
++                    this.seenByList.remove(removeI);
++                }
++            }
++            // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
+         }
+ 
+         @Override
+         public final void moonrise$clearPlayers() {
+             this.lastChunkUpdate = -1;
+             this.lastTrackedChunk = null;
+-            if (this.seenBy.isEmpty()) {
++            if (this.seenByList.isEmpty()) { // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+                 return;
+             }
+-            for (final ServerPlayerConnection conn : new java.util.ArrayList<>(this.seenBy)) {
++            // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++            int last = this.seenByList.size() - 1;
++            for (int i = 0; i < last; i++) {
++                final ServerPlayerConnection conn = this.seenByList.get(i);
++                // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
+                 ServerPlayer player = conn.getPlayer();
+-                this.removePlayer(player);
++                // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++                this.afterRemovePlayer(player, false);
+             }
++            this.afterRemovePlayer(this.seenByList.get(last).getPlayer(), true);
++            this.seenByList.clear();
++            this.seenByPackedArray.clear();
++            // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
+         }
+ 
+         @Override
+         public final boolean moonrise$hasPlayers() {
+-            return !this.seenBy.isEmpty();
++            return !this.seenByList.isEmpty(); // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+         }
+         // Paper end - optimise entity tracker
+ 
+         public TrackedEntity(final Entity entity, final int range, final UpdateInterval updateInterval, final boolean trackDelta) {
+-            this.serverEntity = new ServerEntity(ChunkMap.this.level, entity, updateInterval, trackDelta, this, this.seenBy); // Paper
++            this.serverEntity = new ServerEntity(ChunkMap.this.level, entity, updateInterval, trackDelta, this, this.seenByList); // Paper // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+             this.entity = entity;
+             this.range = range;
+             this.lastSectionPos = SectionPos.of(entity);
+@@ -1298,7 +1330,7 @@
+ 
+         @Override
+         public void sendToTrackingPlayers(final Packet<? super ClientGamePacketListener> packet) {
+-            for (ServerPlayerConnection connection : this.seenBy) {
++            for (ServerPlayerConnection connection : this.seenByList) { // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+                 connection.send(packet);
+             }
+         }
+@@ -1313,7 +1345,7 @@
+ 
+         @Override
+         public void sendToTrackingPlayersFiltered(final Packet<? super ClientGamePacketListener> packet, final Predicate<ServerPlayer> targetPredicate) {
+-            for (ServerPlayerConnection connection : this.seenBy) {
++            for (ServerPlayerConnection connection : this.seenByList) { // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+                 if (targetPredicate.test(connection.getPlayer())) {
+                     connection.send(packet);
+                 }
+@@ -1321,20 +1353,31 @@
+         }
+ 
+         public void broadcastRemoved() {
+-            for (ServerPlayerConnection connection : this.seenBy) {
++            for (ServerPlayerConnection connection : this.seenByList) { // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+                 this.serverEntity.removePairing(connection.getPlayer());
+             }
+         }
+ 
+         public void removePlayer(final ServerPlayer player) {
+             org.spigotmc.AsyncCatcher.catchOp("player tracker clear"); // Spigot
+-            if (this.seenBy.remove(player.connection)) {
+-                this.serverEntity.removePairing(player);
+-                if (this.seenBy.isEmpty()) {
+-                    ChunkMap.this.level.debugSynchronizers().dropEntity(this.entity);
+-                }
+-            }
+-        }
++            // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++            net.minecraft.server.network.ServerGamePacketListenerImpl connection = player.connection;
++            if (this.seenByPackedArray.get(connection.gale$packedWordIndex, connection.gale$packedWordMask)) {
++                this.seenByPackedArray.unsetUnsafe(connection.gale$packedWordIndex, connection.gale$packedWordMask);
++                this.seenByList.remove(connection);
++                this.afterRemovePlayer(player, this.seenByList.isEmpty());
++                // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
++            }
++        }
++
++        // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++        public void afterRemovePlayer(ServerPlayer player, boolean isSeenByEmpty) {
++            this.serverEntity.removePairing(player);
++            if (isSeenByEmpty) {
++                ChunkMap.this.level.debugSynchronizers().dropEntity(this.entity);
++            }
++        }
++        // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
+ 
+         public void updatePlayer(final ServerPlayer player) {
+             org.spigotmc.AsyncCatcher.catchOp("player tracker update"); // Spigot
+@@ -1362,16 +1405,22 @@
+                     && ChunkMap.this.isChunkTracked(player, this.entity.chunkPosition().x(), this.entity.chunkPosition().z());
+                 // Paper end - Configurable entity tracking range by Y
+                 // CraftBukkit start - respect vanish API
+-                if (visibleToPlayer && !player.getBukkitEntity().canSee(this.entity.getBukkitEntity())) { // Paper - only consider hits
++                final org.bukkit.craftbukkit.entity.CraftPlayer bukkitPlayer = player.getBukkitEntity(); // Gale - Local code optimization - Variable extraction - ChunkMap.updatePlayer()
++                final org.bukkit.entity.Entity bukkitEntity = this.entity.getBukkitEntity(); // Gale - Local code optimization - Variable extraction - ChunkMap.updatePlayer()
++                if (visibleToPlayer && !bukkitPlayer.canSeeSkipSelfCheck(bukkitEntity)) { // Paper - only consider hits // Gale - Do less work - Skip self check in CraftPlayer.canSee() if called from ChunkMap.updatePlayer() // Gale - Local code optimization - Variable extraction - ChunkMap.updatePlayer()
+                     visibleToPlayer = false;
+                 }
+                 // CraftBukkit end
+                 if (visibleToPlayer) {
+-                    if (this.seenBy.add(player.connection)) {
++                    // Gale start - Collections - ChunkMap.TrackedEntity.seenBy
++                    if (!this.seenByPackedArray.get(player.connection.gale$packedWordIndex, player.connection.gale$packedWordMask)) {
++                        this.seenByPackedArray.set(player.connection.gale$packedWordIndex, player.connection.gale$packedWordMask);
++                        this.seenByList.add(player.connection);
++                        // Gale end - Collections - ChunkMap.TrackedEntity.seenBy
+                         // Paper start - entity tracking events
+-                        if (io.papermc.paper.event.player.PlayerTrackEntityEvent.getHandlerList().getRegisteredListeners().length == 0 || new io.papermc.paper.event.player.PlayerTrackEntityEvent(player.getBukkitEntity(), this.entity.getBukkitEntity()).callEvent()) {
++                        if (io.papermc.paper.event.player.PlayerTrackEntityEvent.getHandlerList().getRegisteredListeners().length == 0 || new io.papermc.paper.event.player.PlayerTrackEntityEvent(bukkitPlayer, bukkitEntity).callEvent()) { // Gale - Local code optimization - Variable extraction - ChunkMap.updatePlayer()
+                         this.serverEntity.addPairing(player);
+-                        if (this.seenBy.size() == 1) {
++                        if (this.seenByList.size() == 1) { // Gale - Collections - ChunkMap.TrackedEntity.seenBy
+                             ChunkMap.this.level.debugSynchronizers().registerEntity(this.entity);
+                         }
+ 

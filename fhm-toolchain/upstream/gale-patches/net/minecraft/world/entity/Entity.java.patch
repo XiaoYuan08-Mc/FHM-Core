@@ -1,0 +1,277 @@
+--- a/net/minecraft/world/entity/Entity.java
++++ b/net/minecraft/world/entity/Entity.java
+@@ -270,13 +270,13 @@
+     public boolean blocksBuilding;
+     public ImmutableList<Entity> passengers = ImmutableList.of();
+     protected int boardingCooldown;
+-    private @Nullable Entity vehicle;
+-    private Level level;
++    private @Nullable Entity vehicle; // Gale - Event-driven - Mob.requiresCustomPersistence - TODO Watch for new writes
++    private Level level; // Gale - Event-driven - Mob.despawnRange - TODO Watch for new writes
+     public double xo;
+     public double yo;
+     public double zo;
+-    private Vec3 position;
+-    private BlockPos blockPosition;
++    protected Vec3 position; // Gale - Optimize Mob.checkDespawn() - Make protected
++    protected BlockPos blockPosition; // Gale - Optimize Mob.checkDespawn() - Make protected
+     private ChunkPos chunkPosition;
+     private Vec3 deltaMovement = Vec3.ZERO;
+     private float yRot;
+@@ -284,13 +284,14 @@
+     public float yRotO;
+     public float xRotO;
+     private AABB bb = INITIAL_AABB;
++    private boolean boundingBoxChanged = false; // Gale - Do less work - Skip unnecessary Entity.move() code if bounding box and position are unchanged
+     public boolean onGround;
+     public boolean horizontalCollision;
+     public boolean verticalCollision;
+     public boolean verticalCollisionBelow;
+     public boolean minorHorizontalCollision;
+     protected Vec3 stuckSpeedMultiplier = Vec3.ZERO;
+-    private Entity.@Nullable RemovalReason removalReason;
++    private Entity.@Nullable RemovalReason removalReason; // Gale - Event-driven - LivingEntity.isAlive - TODO Watch for new writes
+     public static final float DEFAULT_BB_WIDTH = 0.6F;
+     public static final float DEFAULT_BB_HEIGHT = 1.8F;
+     public float moveDist;
+@@ -302,14 +303,19 @@
+     public double zOld;
+     public boolean noPhysics;
+     protected final RandomSource random = SHARED_RANDOM; // Paper - Share random for entities to make them more random
+-    public int tickCount;
++    // Gale start - Event-driven - Cat.canRemoveWhenFarAway, Ocelot.canRemoveWhenFarAway
++    public int tickCount; // TODO Watch for new writes
++    public void setTickCount(int newTickCount) {
++        this.tickCount = newTickCount;
++    }
++    // Gale end - Event-driven - Cat.canRemoveWhenFarAway, Ocelot.canRemoveWhenFarAway
+     private int remainingFireTicks;
+     private final EntityFluidInteraction fluidInteraction = new EntityFluidInteraction(FLUIDS_WITH_CURRENT);
+     protected boolean wasTouchingWater;
+     protected boolean wasEyeInWater;
+     private int invulnerableTime;
+     protected boolean firstTick = true;
+-    protected final SynchedEntityData entityData;
++    protected final SynchedEntityData entityData; // Gale - Event-driven - AbstractFish.canRemoveWhenFarAway, Axolotl.canRemoveWhenFarAway, Cat.canRemoveWhenFarAway, LivingEntity.isAlive, Mob.requiresCustomPersistence, Ocelot.canRemoveWhenFarAway, ZombieVillager.canRemoveWhenFarAway - TODO Watch for new writes
+     protected static final EntityDataAccessor<Byte> DATA_SHARED_FLAGS_ID = SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BYTE);
+     protected static final int FLAG_ONFIRE = 0;
+     private static final int FLAG_SHIFT_KEY_DOWN = 1;
+@@ -319,7 +325,7 @@
+     protected static final int FLAG_GLOWING = 6;
+     protected static final int FLAG_FALL_FLYING = 7;
+     private static final EntityDataAccessor<Integer> DATA_AIR_SUPPLY_ID = SynchedEntityData.defineId(Entity.class, EntityDataSerializers.INT);
+-    private static final EntityDataAccessor<Optional<Component>> DATA_CUSTOM_NAME = SynchedEntityData.defineId(
++    private static final EntityDataAccessor<Optional<Component>> DATA_CUSTOM_NAME = SynchedEntityData.defineId( // Gale - Event-driven - AbstractFish.canRemoveWhenFarAway, Axolotl.canRemoveWhenFarAway, Ocelot.canRemoveWhenFarAway - TODO Watch for new set calls
+         Entity.class, EntityDataSerializers.OPTIONAL_COMPONENT
+     );
+     private static final EntityDataAccessor<Boolean> DATA_CUSTOM_NAME_VISIBLE = SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BOOLEAN);
+@@ -480,10 +486,7 @@
+ 
+     @Override
+     public final boolean moonrise$hasAnyPlayerPassengers() {
+-        if (this.passengers.isEmpty()) {
+-            return false;
+-        }
+-        return this.getIndirectPassengersStream().anyMatch((entity) -> entity instanceof Player);
++        return this.gale$eventDriven_playerPassengerCount != 0; // Gale - Event-driven - Entity.playerPassengerCount
+     }
+     // Paper end - rewrite chunk system
+     // Paper start - optimise collisions
+@@ -682,6 +685,7 @@
+     }
+ 
+     public final void discard(org.bukkit.event.entity.EntityRemoveEvent.@Nullable Cause cause) {
++        if (!org.galemc.gale.async.SimulationFlag.REAL) return; // Gale - Speculative execution based on next tick simulation - Simulate next tick
+         this.remove(Entity.RemovalReason.DISCARDED, cause);
+         // CraftBukkit end
+     }
+@@ -882,7 +886,7 @@
+             this.getInterpolation().interpolate();
+         }
+ 
+-        this.tickCount++;
++        this.setTickCount(this.tickCount + 1); // Gale - Event-driven - Cat.canRemoveWhenFarAway, Ocelot.canRemoveWhenFarAway
+         this.totalEntityAge++; // Paper - age-like counter for all entities
+     }
+ 
+@@ -1210,7 +1214,18 @@
+                 return;
+             }
+             // Paper end
+-
++            // Gale start - Do less work - Skip unnecessary Entity.move() code if bounding box and position are unchanged
++            if (!this.boundingBoxChanged && delta.x == 0.0D && delta.y == 0.0D && delta.z == 0.0D) {
++                this.horizontalCollision = false;
++                this.verticalCollision = false;
++                this.verticalCollisionBelow = false;
++                this.minorHorizontalCollision = false;
++                this.setOnGroundWithMovement(false, false, Vec3.ZERO);
++                profiler.pop();
++                return;
++            }
++            this.boundingBoxChanged = false;
++            // Gale end - Do less work - Skip unnecessary Entity.move() code if bounding box and position are unchanged
+             delta = this.maybeBackOffFromEdge(delta, moverType);
+             Vec3 movement = this.collide(delta);
+             double movementLength = movement.lengthSqr();
+@@ -1291,8 +1306,15 @@
+                     }
+                 }
+ 
+-                float blockSpeedFactor = this.getBlockSpeedFactor();
+-                this.setDeltaMovement(this.getDeltaMovement().multiply(blockSpeedFactor, 1.0, blockSpeedFactor));
++                // Gale start - Do less work - Skip negligible planar movement multiplication
++                Vec3 currentDelta = this.getDeltaMovement();
++                if (currentDelta.x < -1.0E-6D || currentDelta.x > 1.0E-6D || currentDelta.z < -1.0E-6D || currentDelta.z > 1.0E-6D) {
++                    float blockSpeedFactor = this.getBlockSpeedFactor();
++                    if (blockSpeedFactor < 1.0F - 1.0E-6F || blockSpeedFactor > 1.0F + 1.0E-6F) {
++                        this.setDeltaMovement(currentDelta.multiply(blockSpeedFactor, 1.0D, blockSpeedFactor));
++                    }
++                }
++                // Gale end - Do less work - Skip negligible planar movement multiplication
+                 profiler.pop();
+             }
+         }
+@@ -1494,7 +1516,7 @@
+     }
+ 
+     private boolean isStateClimbable(final BlockState state) {
+-        return state.is(BlockTags.CLIMBABLE) || state.is(Blocks.POWDER_SNOW);
++        return state.isAny(org.dreeam.leaf.util.BlockMasks.CLIMBABLE_TAG_OR_POWDER_SNOW_CLASS); // Gale - Pre-compute - Common BlockState predicates - Apply
+     }
+ 
+     private boolean vibrationAndSoundEffectsFromBlock(
+@@ -1578,9 +1600,10 @@
+             }
+ 
+             BlockState belowState = this.level().getBlockState(getOnPos);
+-            return (!(offset <= 0.5) || !belowState.is(BlockTags.FENCES))
+-                    && !belowState.is(BlockTags.WALLS)
+-                    && !(belowState.getBlock() instanceof FenceGateBlock)
++            // Gale start - Pre-compute - Common BlockState predicates - Apply
++            return (!(offset <= 0.5) || !belowState.isAny(org.dreeam.leaf.util.BlockMasks.FENCES_TAG))
++                    && !belowState.isAny(org.dreeam.leaf.util.BlockMasks.WALLS_TAG_OR_FENCE_GATE_CLASS)
++            // Gale end - Pre-compute - Common BlockState predicates - Apply
+                 ? getOnPos.atY(Mth.floor(this.position.y - offset))
+                 : getOnPos;
+         } else {
+@@ -3441,7 +3464,7 @@
+             }
+ 
+             this.setPose(Pose.STANDING);
+-            this.vehicle = entityToRide;
++            this.setVehicle(entityToRide); // Gale - Event-driven - Mob.isPersistent, Entity.playerPassengerCount
+             this.vehicle.addPassenger(this);
+             if (sendEventAndTriggers) {
+                 this.level().gameEvent(this, GameEvent.ENTITY_MOUNT, this.vehicle.position);
+@@ -3456,6 +3479,21 @@
+         }
+     }
+ 
++    public void setVehicle(@Nullable Entity vehicle) {
++        Entity oldVehicle = this.vehicle;
++        if (oldVehicle == vehicle) return;
++        int playerPassengerCount = this.gale$eventDriven_playerPassengerCount;
++        if (playerPassengerCount != 0) {
++            if (oldVehicle != null) {
++                oldVehicle.gale$eventDriven_playerPassengerCount_add(-playerPassengerCount);
++            }
++            if (vehicle != null) {
++                vehicle.gale$eventDriven_playerPassengerCount_add(playerPassengerCount);
++            }
++        }
++        this.vehicle = vehicle;
++    }
++
+     protected boolean canRide(final Entity vehicle) {
+         return !this.isShiftKeyDown() && this.boardingCooldown <= 0;
+     }
+@@ -3481,8 +3519,8 @@
+         // Paper end - Force entity dismount during teleportation
+         if (this.vehicle != null) {
+             Entity oldVehicle = this.vehicle;
+-            this.vehicle = null;
+-            if (!oldVehicle.removePassenger(this, suppressCancellation)) this.vehicle = oldVehicle; // CraftBukkit // Paper - Force entity dismount during teleportation
++            this.setVehicle(null); // Gale - Event-driven - Mob.isPersistent, Entity.playerPassengerCount
++            if (!oldVehicle.removePassenger(this, suppressCancellation)) this.setVehicle(oldVehicle); // Gale - Event-driven - Mob.isPersistent, Entity.playerPassengerCount
+             Entity.RemovalReason removalReason = this.getRemovalReason();
+             if (removalReason == null || removalReason.shouldDestroy()) {
+                 this.level().gameEvent(this, GameEvent.ENTITY_DISMOUNT, oldVehicle.position);
+@@ -4722,6 +4760,20 @@
+     }
+ 
+     public final void setBoundingBox(final AABB bb) {
++        // Gale start - Do less work - Skip unnecessary Entity.move() code if bounding box and position are unchanged
++        if (!this.boundingBoxChanged) {
++            AABB current = this.bb;
++            if (current != bb && (
++                    current.minX != bb.minX ||
++                    current.minY != bb.minY ||
++                    current.minZ != bb.minZ ||
++                    current.maxX != bb.maxX ||
++                    current.maxY != bb.maxY ||
++                    current.maxZ != bb.maxZ)) {
++                this.boundingBoxChanged = true;
++            }
++        }
++        // Gale end - Do less work - Skip unnecessary Entity.move() code if bounding box and position are unchanged
+         // CraftBukkit start - block invalid bounding boxes
+         double minX = bb.minX,
+                 minY = bb.minY,
+@@ -4860,13 +4912,44 @@
+     }
+ 
+     public int countPlayerPassengers() {
+-        return (int)this.getIndirectPassengersStream().filter(e -> e instanceof Player).count();
++        return this.gale$eventDriven_playerPassengerCount; // Gale - Event-driven - Entity.playerPassengerCount
+     }
+ 
+     public boolean hasExactlyOnePlayerPassenger() {
+-        if (this.passengers.isEmpty()) { return false; } // Paper - Optimize indirect passenger iteration
+-        return this.countPlayerPassengers() == 1;
+-    }
++        return this.gale$eventDriven_playerPassengerCount == 1; // Gale - Event-driven - Entity.playerPassengerCount
++    }
++
++    // Gale start - Event-driven - Entity.playerPassengerCount
++    private int gale$eventDriven_playerPassengerCount;
++
++    public void gale$eventDriven_playerPassengerCount_increment() {
++        this.gale$eventDriven_playerPassengerCount_add(1);
++    }
++
++    public void gale$eventDriven_playerPassengerCount_decrement() {
++        this.gale$eventDriven_playerPassengerCount_add(-1);
++    }
++
++    private void gale$eventDriven_playerPassengerCount_add(int delta) {
++        Entity current = this;
++        while (current != null) {
++            current.gale$eventDriven_playerPassengerCount += delta;
++            current = current.vehicle;
++        }
++    }
++
++    public boolean gale$eventDriven_playerPassengerCount_isZero() {
++        return this.gale$eventDriven_playerPassengerCount == 0;
++    }
++    // Gale end - Event-driven - Entity.playerPassengerCount
++
++    // Gale start - Event-driven - Entity.isInTickList
++    public boolean gale$eventDriven_isInTickList;
++
++    public void gale$eventDriven_isInTickList_set(boolean newValue) {
++        this.gale$eventDriven_isInTickList = newValue;
++    }
++    // Gale end - Event-driven - Entity.isInTickList
+ 
+     public Entity getRootVehicle() {
+         Entity result = this;
+@@ -5349,6 +5432,7 @@
+         if (this.removalReason == null) {
+             this.removalReason = reason;
+             this.removeEventCause = cause; // Paper
++            if (this instanceof LivingEntity livingEntity) livingEntity.gale$eventDriven_isAlive_update(); // Gale - Event-driven - LivingEntity.isAlive
+         }
+ 
+         if (this.removalReason.shouldDestroy()) {

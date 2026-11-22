@@ -15,7 +15,11 @@
 pwsh fhm-toolchain/流水线.ps1 -Target gale
 ```
 
-要 JDK 25 和 Gradle 9.8.2。内存小的机器脚本会自己退到 `-Xint` 重试，大概 15 分钟。
+环境要三样：JDK 25（`JAVA_HOME` 指过去）、Gradle 用仓库自带的 wrapper、GNU `patch` 和 `git` 在 PATH 里。产出落在 `fhm-out/`，不写仓库目录。内存小的机器脚本会自己退到 `-Xint` 重试，约 15 分钟。
+
+**一个前置条件**：`applyAllPatches` 要从 Paper 仓库拉源码，这一步走 [paperweight](https://github.com/PaperMC/paperweight) 的标准流程，第一次跑会下载 Paper 并打全套补丁，很慢。Gale 那 158 条补丁、32 个 `org/galemc` 类、Leaf 的 `BlockMasks.java` 都已经收在 `fhm-toolchain/upstream/`，脚本不依赖本机其他目录。
+
+如果 `-PpaperCommit` 不显式指定，就用 `gradle.properties` 里的上游提交；指定本机自建 Paper 镜像的提交才会得到和发布 jar 一致的字节。
 
 合并过程、剔了哪些补丁、踩过的坑在 [docs/FHM-Core-整合报告.md](docs/FHM-Core-整合报告.md)。
 

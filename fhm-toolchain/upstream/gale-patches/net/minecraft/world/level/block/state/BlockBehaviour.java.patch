@@ -1,0 +1,151 @@
+--- a/net/minecraft/world/level/block/state/BlockBehaviour.java
++++ b/net/minecraft/world/level/block/state/BlockBehaviour.java
+@@ -465,6 +465,11 @@
+         private BlockBehaviour.BlockStateBase.@Nullable Cache cache;
+         private FluidState fluidState = Fluids.EMPTY.defaultFluidState();
+         private boolean isRandomlyTicking;
++        // Gale start - Pre-compute - BlockBehaviour.hasBlockEntity()
++        private boolean gale$precompute_hasBlockEntity;
++        // Gale end - Pre-compute - BlockBehaviour.hasBlockEntity()
++        private boolean gale$eventDriven_isDestroyable; // Gale - Event-driven - BlockBehaviour.isDestroyable()
++        private PushReaction gale$eventDriven_pistonPushReaction; // Gale - Event-driven - BlockBehaviour.getPistonPushReaction()
+         private boolean solidRender;
+         private VoxelShape occlusionShape;
+         private VoxelShape[] occlusionShapesByFace;
+@@ -489,6 +494,16 @@
+         private boolean emptyCollisionShape;
+         private boolean emptyConstantCollisionShape;
+         private VoxelShape constantCollisionShape;
++        // Gale start - Pre-compute - Common BlockState predicates
++        private int predicateFlags;
++        public boolean isAny(int predicateMask) {
++            return (this.predicateFlags & predicateMask) != 0;
++        }
++        public boolean isUnoccupiedBed() {
++            return (this.predicateFlags & org.dreeam.leaf.util.BlockMasks.UNOCCUPIED_BED_MASK) == org.dreeam.leaf.util.BlockMasks.BEDS_TAG;
++        }
++        public void initPredicateFlags() { this.predicateFlags = org.dreeam.leaf.util.BlockMasks.init(this.asState()); }
++        // Gale end - Pre-compute - Common BlockState predicates
+ 
+         private static void initCaches(final VoxelShape shape, final boolean neighbours) {
+             ((ca.spottedleaf.moonrise.patches.collisions.shape.CollisionVoxelShape)shape).moonrise$isFullBlock();
+@@ -624,6 +639,11 @@
+ 
+             this.propagatesSkylightDown = this.owner.propagatesSkylightDown(this.asState());
+             this.lightDampening = this.owner.getLightDampening(this.asState());
++            // Gale start - Pre-compute - BlockBehaviour.hasBlockEntity()
++            this.gale$precompute_hasBlockEntity = this.getBlock() instanceof EntityBlock;
++            // Gale end - Pre-compute - BlockBehaviour.hasBlockEntity()
++            this.gale$eventDriven_isDestroyable_update(); // Gale - Event-driven - BlockBehaviour.isDestroyable()
++            this.gale$eventDriven_pistonPushReaction_update(); // Gale - Event-driven - BlockBehaviour.getPistonPushReaction()
+             // Paper start - rewrite chunk system
+             this.isConditionallyFullOpaque = this.canOcclude & this.useShapeForLightOcclusion;
+             // Paper end - rewrite chunk system
+@@ -670,16 +690,33 @@
+             return this.getBlock().builtInRegistryHolder();
+         }
+ 
++        // Gale start - Faster implementation for subclass - BlockBehaviour.BlockStateBase.is(Block)
++        @Override
++        public boolean is(final Block rawType) {
++            return this.owner == rawType;
++        }
++        // Gale end - Faster implementation for subclass - BlockBehaviour.BlockStateBase.is(Block)
++
+         @Deprecated
+         public boolean isSolid() {
+             return this.legacySolid;
+         }
+ 
+-        // Paper start - Protect Bedrock and End Portal/Frames from being destroyed
++        // Gale start - Event-driven - BlockBehaviour.isDestroyable()
+         public final boolean isDestroyable() {
+-            return this.getBlock().isDestroyable();
+-        }
+-        // Paper end - Protect Bedrock and End Portal/Frames from being destroyed
++            return this.gale$eventDriven_isDestroyable;
++        }
++
++        private void gale$eventDriven_isDestroyable_update() {
++            // Paper configuration is initialized after block bootstrap.
++            if (io.papermc.paper.configuration.GlobalConfiguration.get() == null) return;
++            boolean newValue = this.getBlock().isDestroyable();
++            if (this.gale$eventDriven_isDestroyable != newValue) {
++                this.gale$eventDriven_isDestroyable = newValue;
++                this.gale$eventDriven_pistonPushReaction_update();
++            }
++        }
++        // Gale end - Event-driven - BlockBehaviour.isDestroyable()
+ 
+         public boolean isValidSpawn(final BlockGetter level, final BlockPos pos, final EntityType<?> type) {
+             return this.getBlock().properties.isValidSpawn.test(this.asState(), level, pos, type);
+@@ -790,9 +827,15 @@
+             return this.getBlock().getDirectSignal(this.asState(), level, pos, direction);
+         }
+ 
+-        public PushReaction getPistonPushReaction() {
+-            return !this.isDestroyable() ? PushReaction.IMMOVEABLE : this.pushReaction; // Paper - Protect Bedrock and End Portal/Frames from being destroyed
+-        }
++        // Gale start - Event-driven - BlockBehaviour.getPistonPushReaction()
++        public final PushReaction getPistonPushReaction() {
++            return this.gale$eventDriven_pistonPushReaction;
++        }
++
++        private void gale$eventDriven_pistonPushReaction_update() {
++            this.gale$eventDriven_pistonPushReaction = !this.gale$eventDriven_isDestroyable ? PushReaction.BLOCK : this.pushReaction;
++        }
++        // Gale end - Event-driven - BlockBehaviour.getPistonPushReaction()
+ 
+         public boolean isSolidRender() {
+             return this.solidRender;
+@@ -819,7 +862,17 @@
+         }
+ 
+         public VoxelShape getCollisionShape(final BlockGetter level, final BlockPos pos, final CollisionContext context) {
+-            return this.getBlock().getCollisionShape(this.asState(), level, pos, context);
++            if (context == CollisionContext.empty()) {
++                VoxelShape cached = org.galemc.gale.util.CollisionShapeCache.getCachedCollisionShape(this.asState());
++                if (cached != null) {
++                    return cached;
++                }
++            }
++            VoxelShape shape = this.getBlock().getCollisionShape(this.asState(), level, pos, context);
++            if (context == CollisionContext.empty()) {
++                org.galemc.gale.util.CollisionShapeCache.setCachedCollisionShape(this.asState(), shape);
++            }
++            return shape;
+         }
+ 
+         public VoxelShape getEntityInsideCollisionShape(final BlockGetter level, final BlockPos pos, final Entity entity) {
+@@ -1003,8 +1056,10 @@
+             return this.is(tag) && predicate.test(this);
+         }
+ 
+-        public boolean hasBlockEntity() {
+-            return this.getBlock() instanceof EntityBlock;
++        public final boolean hasBlockEntity() {
++            // Gale start - Pre-compute - BlockBehaviour.hasBlockEntity()
++            return this.gale$precompute_hasBlockEntity;
++            // Gale end - Pre-compute - BlockBehaviour.hasBlockEntity()
+         }
+ 
+         public boolean shouldChangedStateKeepBlockEntity(final BlockState oldState) {
+@@ -1474,6 +1529,18 @@
+     public interface StateArgumentPredicate<A> {
+         boolean test(BlockState state, BlockGetter level, BlockPos pos, A a);
+     }
++
++    // Gale start - Event-driven - BlockBehaviour.getPistonPushReaction(), BlockBehaviour.isDestroyable()
++    public static void gale$eventDriven_updateConfigBased() {
++        for (Block block : BuiltInRegistries.BLOCK) {
++            for (BlockState state : block.getStateDefinition().getPossibleStates()) {
++                BlockStateBase blockStateBase = state;
++                blockStateBase.gale$eventDriven_isDestroyable_update();
++                blockStateBase.gale$eventDriven_pistonPushReaction_update();
++            }
++        }
++    }
++    // Gale end - Event-driven - BlockBehaviour.getPistonPushReaction(), BlockBehaviour.isDestroyable()
+ 
+     @FunctionalInterface
+     public interface StatePredicate {

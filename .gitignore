@@ -67,3 +67,7 @@ test-plugin.settings.gradle.kts
 # FHM
 replay_pid*.log
 *.tmp
+
+# FHM 构建产出
+/fhm-out/
+*.log

@@ -1,21 +1,35 @@
 $ErrorActionPreference = 'Continue'
-$git = 'D:\scoop\apps\git\current\cmd\git.exe'
-$pt  = 'D:\scoop\apps\git\current\usr\bin\patch.exe'
-$w   = 'G:\服务端\Purpur-26.3\purpur-server\src\minecraft\java'
-$f   = 'G:\_forkaudit\gale263-fixed'
-$exFile = 'G:\服务端\gale-exclude.txt'
+
+# 路径全部按脚本所在目录推，换机器不用改
+$here   = $PSScriptRoot
+$repo   = Split-Path $here -Parent
+$w      = Join-Path $repo 'purpur-server\src\minecraft\java'
+$f      = Join-Path $here 'upstream\gale-patches'
+$exFile = Join-Path $here 'gale-exclude.txt'
+
+$git       = (Get-Command git.exe -ErrorAction SilentlyContinue).Source
+$patchExe  = (Get-Command patch.exe -ErrorAction SilentlyContinue).Source
+if (-not $git)      { throw '找不到 git，装 Git for Windows 并放进 PATH' }
+if (-not $patchExe) { throw '找不到 patch，用 Git for Windows 里的 usr\bin\patch.exe' }
+if (-not (Test-Path -LiteralPath $w)) { throw "找不到 MC 工作树 $w，先跑一次 applyAllPatches" }
 
 $ex = @()
 if (Test-Path $exFile) { $ex = (Get-Content $exFile) -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ } }
 
-& $git -C $w reset --hard a490172 -q
+# 基线：本机有 a490172 就用它；新克隆没有这个提交，退回当前 HEAD（刚 applyAllPatches 的状态）
+$base = 'a490172'
+if (-not (& $git -C $w rev-parse --verify $base 2>$null)) {
+  $base = (& $git -C $w rev-parse HEAD).Trim()
+  Write-Host "没有 a490172 基线，改用当前 HEAD $base"
+}
+& $git -C $w reset --hard $base -q
 & $git -C $w clean -fdq
 
 $ok = @(); $bad = @()
 foreach ($p in (Get-ChildItem $f -Recurse -File -Filter *.patch | Sort-Object FullName)) {
   $rel = $p.FullName.Replace($f + '\', '')
   if ($ex -contains $rel) { $bad += "EXCLUDED:$rel"; continue }
-  $out = & $pt -p1 -F0 -s -d $w -i $p.FullName 2>&1
+  $out = & $patchExe -p1 -F0 -s -d $w -i $p.FullName 2>&1
   if ($LASTEXITCODE -ne 0 -or ($out -match 'FAILED|fuzz')) {
     & $git -C $w reset --hard -q; & $git -C $w clean -fdq
     $bad += "CONFLICT:$rel"
@@ -26,8 +40,8 @@ foreach ($p in (Get-ChildItem $f -Recurse -File -Filter *.patch | Sort-Object Fu
   }
 }
 
-# Gale 自有 Java 源码
-$galesrc = 'G:\_forkaudit\gale263\gale-server\src\main\java\org\galemc'
+# Gale 自有 Java 源码（随仓库带的 upstream\gale-src）
+$galesrc = Join-Path $here 'upstream\gale-src\org\galemc'
 if (Test-Path $galesrc) {
   New-Item -ItemType Directory -Force -Path "$w\org" | Out-Null
   Copy-Item $galesrc -Destination "$w\org\" -Recurse -Force
@@ -46,7 +60,7 @@ if (Test-Path $galesrc) {
 
 # Leaf 的 BlockMasks 工具类
 New-Item -ItemType Directory -Force -Path "$w\org\dreeam\leaf\util" | Out-Null
-Copy-Item 'G:\_forkaudit\leaf\leaf-server\src\main\java\org\dreeam\leaf\util\BlockMasks.java' "$w\org\dreeam\leaf\util\BlockMasks.java" -Force
+Copy-Item (Join-Path $here 'upstream\leaf\BlockMasks.java') "$w\org\dreeam\leaf\util\BlockMasks.java" -Force
 # Leaf 版 BlockMasks 调用了 26.3 中已私有的 API，改为不参与掩码计算（该掩码未被使用）
 $bmp = "$w\org\dreeam\leaf\util\BlockMasks.java"
 (Get-Content -LiteralPath $bmp -Raw) -replace 'i \|= FlowingFluid\.canHoldAnyFluid\(state\) \? CAN_HOLD_ANY_FLUID : 0;', '// canHoldAnyFluid 在 26.3 中为 private，跳过' | Set-Content -LiteralPath $bmp -Encoding utf8
@@ -171,5 +185,5 @@ public class GaleGlobalConfiguration extends ConfigurationPart {
 & $git -C $w -c user.name=integ -c user.email=i@local commit -qm "shims: BlockMasks + SimulationFlag + GaleConfig fields" *> $null
 
 "落地 $($ok.Count) / 未落地 $($bad.Count)"
-$ok  | Out-File 'G:\服务端\gale-integrated.txt' -Encoding utf8
-$bad | Out-File 'G:\服务端\gale-conflict.txt'   -Encoding utf8
+$ok  | Out-File (Join-Path $here 'gale-integrated.txt') -Encoding utf8
+$bad | Out-File (Join-Path $here 'gale-conflict.txt')   -Encoding utf8

@@ -1,0 +1,95 @@
+--- a/net/minecraft/world/entity/player/Player.java
++++ b/net/minecraft/world/entity/player/Player.java
+@@ -172,9 +172,71 @@
+     private Optional<GlobalPos> lastDeathLocation = Optional.empty();
+     public @Nullable FishingHook fishing;
+     public float hurtDir;
+-    public boolean affectsSpawning = true; // Paper - Affects Spawning API
++    public boolean affectsSpawning = true; // Paper - Affects Spawning API // Gale - Event-driven - Player.affectsSpawningSelector - TODO Watch for new writes
+     public net.kyori.adventure.util.TriState flyingFallDamage = net.kyori.adventure.util.TriState.NOT_SET; // Paper - flying fall damage
+ 
++    // Gale start - Event-driven - Player.affectsSpawningSelector
++    public boolean gale$eventDriven_affectsSpawningSelector; // Gale - Event-driven - Level.affectsSpawningSelectorPlayers - TODO Watch for new writes
++    public int gale$eventDriven_affectsSpawningSelectorLevelId;
++    public int gale$eventDriven_affectsSpawningSelectorDenseIndex = -1; // Keep the affects-spawning player list dense for despawn scans
++
++    public void gale$eventDriven_affectsSpawningSelector_update() {
++        boolean newValue = net.minecraft.world.entity.EntitySelector.gale$eventDriven_affectsSpawningSelector_compute(this);
++        if (this.gale$eventDriven_affectsSpawningSelector != newValue) {
++            this.gale$eventDriven_affectsSpawningSelector = newValue;
++            if (this.gale$eventDriven_trackedByLevel != null) {
++                if (newValue) {
++                    this.gale$eventDriven_affectsSpawningSelector_postStartAffectsSpawningInLevel(this.gale$eventDriven_trackedByLevel);
++                    this.gale$eventDriven_trackedByLevel.gale$eventDriven_affectsSpawningSelectorPlayers_add(this);
++                } else {
++                    this.gale$eventDriven_affectsSpawningSelector_postStopAffectsSpawningInLevel(this.gale$eventDriven_trackedByLevel);
++                    this.gale$eventDriven_trackedByLevel.gale$eventDriven_affectsSpawningSelectorPlayers_remove(this);
++                }
++            }
++        }
++    }
++
++    @Override
++    public void gale$eventDriven_isAlive_updateFor_health(float health) {
++        boolean oldValue = this.gale$eventDriven_isAlive;
++        super.gale$eventDriven_isAlive_updateFor_health(health);
++        boolean newValue = this.gale$eventDriven_isAlive;
++        if (oldValue != newValue) {
++            this.gale$eventDriven_affectsSpawningSelector_update();
++        }
++    }
++
++    protected @Nullable ServerLevel gale$eventDriven_trackedByLevel; // Gale - Event-driven - Level.affectsSpawningSelectorPlayers - TODO Watch for new writes
++
++    public void gale$eventDriven_trackedByLevel_set(@Nullable ServerLevel level) {
++        ServerLevel oldLevel = this.gale$eventDriven_trackedByLevel;
++        if (oldLevel != level) {
++            this.gale$eventDriven_trackedByLevel = level;
++            if (this.gale$eventDriven_affectsSpawningSelector) {
++                if (oldLevel != null) {
++                    this.gale$eventDriven_affectsSpawningSelector_postStopAffectsSpawningInLevel(oldLevel);
++                    oldLevel.gale$eventDriven_affectsSpawningSelectorPlayers_remove(this);
++                }
++                if (level != null) {
++                    this.gale$eventDriven_affectsSpawningSelector_postStartAffectsSpawningInLevel(level);
++                    level.gale$eventDriven_affectsSpawningSelectorPlayers_add(this);
++                }
++
++            }
++        }
++    }
++
++    public void gale$eventDriven_affectsSpawningSelector_postStartAffectsSpawningInLevel(ServerLevel level) {
++        if (level.gale$checkDespawn_usingSpatialGrid) level.gale$checkDespawn_addToGrids(this); // Gale - Optimize Mob.checkDespawn()
++    }
++
++    public void gale$eventDriven_affectsSpawningSelector_postStopAffectsSpawningInLevel(ServerLevel level) {
++        if (level.gale$checkDespawn_usingSpatialGrid) level.gale$checkDespawn_removeFromGrids(this); // Gale - Optimize Mob.checkDespawn()
++    }
++    // Gale end - Event-driven - Player.affectsSpawningSelector
++
++    public int[] gale$checkDespawn_spatialGridSlots; // Gale - Optimize Mob.checkDespawn()
++
+     // CraftBukkit start
+     public boolean fauxSleeping;
+     public int oldLevel = -1;
+@@ -2247,4 +2309,19 @@
+         public static final Player.BedSleepingProblem NOT_SAFE = new Player.BedSleepingProblem(Component.translatable("block.minecraft.bed.not_safe"));
+         public static final Player.BedSleepingProblem EXPLOSION = new Player.BedSleepingProblem(null); // Paper - Added to properly handle explosions in bed events
+     }
++
++    // Gale start - Event-driven - Entity.playerPassengerCount
++    @Override
++    public void setVehicle(@Nullable Entity vehicle) {
++        Entity oldVehicle = this.getVehicle();
++        if (oldVehicle == vehicle) return;
++        if (oldVehicle != null) {
++            oldVehicle.gale$eventDriven_playerPassengerCount_decrement();
++        }
++        super.setVehicle(vehicle);
++        if (vehicle != null) {
++            vehicle.gale$eventDriven_playerPassengerCount_increment();
++        }
++    }
++    // Gale end - Event-driven - Entity.playerPassengerCount
+ }

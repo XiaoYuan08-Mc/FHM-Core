@@ -1,0 +1,19 @@
+--- a/net/minecraft/world/entity/ai/behavior/GateBehavior.java
++++ b/net/minecraft/world/entity/ai/behavior/GateBehavior.java
+@@ -85,9 +85,14 @@
+             }
+         }
+         // Paper end - Perf: Remove streams from hot code
+-        if (this.behaviors.stream().noneMatch(behavior -> behavior.getStatus() == Behavior.Status.RUNNING)) {
+-            this.doStop(level, body, timestamp);
++        // Gale start - Local code optimization - GateBehavior.tickOrStop() (remove stream)
++        for (final BehaviorControl<? super E> behavior : this.behaviors) {
++            if (behavior.getStatus() == Behavior.Status.RUNNING) {
++                return;
++            }
+         }
++            this.doStop(level, body, timestamp);
++        // Gale end - Local code optimization - GateBehavior.tickOrStop() (remove stream)
+     }
+ 
+     @Override

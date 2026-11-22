@@ -1,0 +1,49 @@
+--- a/net/minecraft/tags/TagKey.java
++++ b/net/minecraft/tags/TagKey.java
+@@ -11,11 +11,44 @@
+ import net.minecraft.resources.Identifier;
+ import net.minecraft.resources.ResourceKey;
+ 
+-public record TagKey<T>(ResourceKey<? extends Registry<T>> registry, Identifier location) {
++// Gale start - Pre-compute - Registry tags
++public final class TagKey<T> {
++    private final ResourceKey<? extends Registry<T>> registry;
++    private final Identifier location;
++    public TagKey(ResourceKey<? extends Registry<T>> registry, Identifier location) {
++        this.registry = registry;
++        this.location = location;
++    }
++    public ResourceKey<? extends Registry<T>> registry() { return this.registry; }
++    public Identifier location() { return this.location; }
++
++    public int indexInRegistryWordIndex;
++    public long indexInRegistryWordMask;
++
++    private int gale$cached_hashCode; // Gale - Cache - TagKey.hashCode()
++
++    @Override
++    public boolean equals(Object obj) {
++        return this == obj || obj instanceof TagKey other && this.registry.equals(other.registry) && this.location.equals(other.location);
++    }
++
++    @Override
++    public int hashCode() {
++        int hashCode = this.gale$cached_hashCode;
++        if (hashCode == 0) {
++            hashCode = 1 + this.registry.hashCode();
++            hashCode = 31 * hashCode + this.location.hashCode();
++            this.gale$cached_hashCode = hashCode;
++        }
++        return hashCode;
++    }
++
++    // Gale end - Pre-compute - Registry tags
+     private static final Interner<TagKey<?>> VALUES = Interners.newWeakInterner();
+ 
+     @Deprecated
+-    public TagKey {
++    public TagKey() {
++        this(null, null); // Gale - Pre-compute - Registry tags
+     }
+ 
+     public static <T> Codec<TagKey<T>> codec(final ResourceKey<? extends Registry<T>> registryName) {
