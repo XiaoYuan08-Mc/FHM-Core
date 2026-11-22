@@ -71,3 +71,5 @@ replay_pid*.log
 # FHM 构建产出
 /fhm-out/
 *.log
+fhm-toolchain/gale-conflict.txt
+fhm-toolchain/gale-integrated.txt
