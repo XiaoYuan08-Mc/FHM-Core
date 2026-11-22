@@ -36,6 +36,8 @@ function Say($m) { Write-Host $m }
 
 # ---------- 1. 版本号 ----------
 if (-not $Version) {
+  # 本地可能一个标签都没有（标签只推在远端），先拉一遍
+  & $git -C $repoDir fetch --tags --quiet 2>$null
   $old = & $git -C $repoDir tag -l '26.3-r*'
   $max = 0
   foreach ($t in $old) { if ($t -match '26\.3-r(\d+)$') { $n = [int]$Matches[1]; if ($n -gt $max) { $max = $n } } }
@@ -127,7 +129,9 @@ if ($dirty) {
 }
 & $git -C $repoDir add "docs/releases/$Version.md"
 & $git -C $repoDir -c user.name='XiaoYuan08-MC' -c user.email='wsy080622@users.noreply.github.com' commit -q -m "docs: $Version 发行说明"
-& $git -C $repoDir tag -a $Version -m "FHM-Core 26.3 $Version ($Flavor)"
+# 打标签也要身份，少了这段 tag -a 会 fatal，后面的推送和 Release 全是错的
+& $git -C $repoDir -c user.name='XiaoYuan08-MC' -c user.email='wsy080622@users.noreply.github.com' tag -a $Version -m "FHM-Core 26.3 $Version ($Flavor)"
+if ($LASTEXITCODE -ne 0) { throw "打标签失败：$Version 可能已经存在" }
 $tagCommit = (& $git -C $repoDir rev-parse --short HEAD).Trim()
 Say "标签 $Version -> $tagCommit"
 
