@@ -69,9 +69,9 @@ if ($dirty) {
   Say '!! 工作区不干净，报告能提交，但标签会落在当前 HEAD 上。建议先把改动提交完再发版'
 }
 & $git -C $repoDir add "docs/releases/$Version.md"
-& $git -C $repoDir -c user.name='XiaoYuan08-MC' -c user.email='wsy080622@users.noreply.github.com' commit -q -m "docs: $Version 发行说明"
+& $git -C $repoDir -c user.name='XiaoYuan08-MC' -c user.email='XiaoYuan08-MC@users.noreply.github.com' commit -q -m "docs: $Version 发行说明"
 # 打标签也要身份，少了这段 tag -a 会 fatal，后面的推送和 Release 全是错的
-& $git -C $repoDir -c user.name='XiaoYuan08-MC' -c user.email='wsy080622@users.noreply.github.com' tag -a $Version -m "FHM-Core 26.3 $Version ($Flavor)"
+& $git -C $repoDir -c user.name='XiaoYuan08-MC' -c user.email='XiaoYuan08-MC@users.noreply.github.com' tag -a $Version -m "FHM-Core 26.3 $Version ($Flavor)"
 if ($LASTEXITCODE -ne 0) { throw "打标签失败：$Version 可能已经存在" }
 $tagCommit = (& $git -C $repoDir rev-parse --short HEAD).Trim()
 Say "标签 $Version -> $tagCommit"
