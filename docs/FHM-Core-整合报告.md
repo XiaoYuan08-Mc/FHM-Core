@@ -73,6 +73,24 @@ Gale 44 条更分散：TagKey 哈希、BitStorage、随机源、LevelTicks 这�
 
 改完起服第一行是 `[bootstrap] Loading FHM-Core 26.3-DEV-ver/26.3@ecee149`。
 
+## 登录期空指针（已修）
+
+第一版打包后本机起服没问题，玩家一连就崩。日志里是这一行：
+
+```
+java.lang.NullPointerException: Cannot read field "misc"
+because the return value of "org.galemc.gale.configuration.GaleGlobalConfiguration.get()" is null
+  at ServerLoginPacketListenerImpl.tickTimeout(...)
+```
+
+原因简单：Gale 原来的 `GaleConfigurations` 被裁掉了，没人再调 `set()`，shim 里 `get()` 拿到的就是 null。玩家一进登录阶段，`tickTimeout` 每 tick 都去读 `misc`，直接炸，后面连带 `Sending unknown packet 'clientbound/minecraft:disconnect'`，客户端看到的是 Internal server error。
+
+修法是把 `get()` 改成惰性构造，第一次取的时候自己 new 一个。用到 `get()` 的地方有十来处：登录超时、书本写入权限、空消息告警、玩家列表、Sensus、统计、签名链、`V4290`，全走这一条。
+
+顺带改了冒烟：以前冒烟只看 `Done (` 那一行，能起服就算过，压根没客户端连进来。现在起完服会自己发一次握手加 LoginStart，等 6 秒再翻日志，出现 `GaleGlobalConfiguration`、`NullPointerException`、`Failed to handle packet` 就算失败。
+
+验证是拿真包跑的。假客户端握手 → LoginStart，服务端打出 `UUID of player TestBot is 30fecbe1-...`，接着被白名单踢掉。能打出这行说明登录监听器正常跑，tickTimeout 那条栈没了。
+
 ## 还没做的
 
 TPS 对比没有。现在只能证明能起来、不报错，涨了多少性能没数。真要上生产，得拿原版 Purpur 跑同一张图、同样的在线人数，各采 30 分钟才算数。
