@@ -9,7 +9,21 @@ $exFile = Join-Path $here 'gale-exclude.txt'
 
 $git       = (Get-Command git.exe -ErrorAction SilentlyContinue).Source
 $patchExe  = (Get-Command patch.exe -ErrorAction SilentlyContinue).Source
-if (-not $git)      { throw '找不到 git，装 Git for Windows 并放进 PATH' }
+if (-not $git) { throw '找不到 git，装 Git for Windows 并放进 PATH' }
+if (-not $patchExe) {
+  # Git for Windows 自带 patch.exe：用 git --exec-path 反推安装根目录，再找 usr\bin
+  $cands = @()
+  $ep = (& $git --exec-path 2>$null)
+  if ($ep) {
+    $root = Split-Path (Split-Path (Split-Path $ep -Parent) -Parent) -Parent
+    $cands += (Join-Path $root 'usr\bin\patch.exe')
+    $cands += (Join-Path $root 'mingw64\bin\patch.exe')
+  }
+  $cands += (Join-Path (Split-Path (Split-Path $git -Parent) -Parent) 'usr\bin\patch.exe')
+  $cands += 'C:\Program Files\Git\usr\bin\patch.exe'
+  $cands += 'C:\Program Files (x86)\Git\usr\bin\patch.exe'
+  foreach ($c in $cands) { if (Test-Path -LiteralPath $c) { $patchExe = $c; break } }
+}
 if (-not $patchExe) { throw '找不到 patch，用 Git for Windows 里的 usr\bin\patch.exe' }
 if (-not (Test-Path -LiteralPath $w)) { throw "找不到 MC 工作树 $w，先跑一次 applyAllPatches" }
 
