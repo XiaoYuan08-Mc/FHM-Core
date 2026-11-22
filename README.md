@@ -2,12 +2,14 @@
 
 繁花梦的服务端内核。底子是 Purpur 26.3（`ver/26.3`，`ecee149`），把 Leaf 的 141 条优化和 Gale 的 44 条合了进去。
 
-编出来 56.3MB，起服 7.8 秒，日志干净。
+编出来 56.3MB。本机 i3-12100F 起服 8~9 秒，日志干净（唯一那条 `No key layers` 是 flat 测试世界的事，正常世界不出）。
 
 - `FHM-Core-26.3.jar`：Leaf + Gale 全量
 - 另编一档只打 Leaf 的，出问题时用来判断是哪边的锅
 
 启动横幅走 FHM-Core 这个名字（`Brand-Id: fhmcore:fhm`）。`purpur.yml`、`/purpur`、`purpur.*` 这些内部标识没动，插件和权限组不用重配。
+
+第一次启动要联网。这个 jar 是 paperclip 结构，里面只有补丁，第一次跑会去 Mojang 下 `mojang_26.3.jar`、打上补丁、拉依赖库，慢一分钟左右，之后走 `cache/` 和 `libraries/` 就快了。纯内网部署记得把跑过一次的 `cache/`、`libraries/`、`versions/` 一起拷过去。
 
 编法：
 

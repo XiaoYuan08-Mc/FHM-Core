@@ -1,5 +1,8 @@
 $ErrorActionPreference = 'Continue'
 
+# 注意：这个脚本会把 Minecraft 工作树 reset --hard 到基线再打补丁
+# 工作树里没提交的手改会丢，动源码前先提交或者 stash
+
 # 路径全部按脚本所在目录推，换机器不用改
 $here   = $PSScriptRoot
 $repo   = Split-Path $here -Parent

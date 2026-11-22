@@ -1,7 +1,17 @@
-param([string]$Jar, [string]$Flavor)
+param([string]$Jar, [string]$Flavor, [string]$Version)
+
+if (-not $Jar -or -not $Flavor) { throw '用法：标记版本.ps1 -Jar <jar 路径> -Flavor leaf|leafgale [-Version 26.3-DEV-xxxx]' }
+if (-not (Test-Path -LiteralPath $Jar)) { throw "找不到 jar：$Jar" }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
+
+# 版本串优先用参数，其次问 git，最后才用兜底值；不再写死某个提交
+if (-not $Version) {
+  $repo = Split-Path $PSScriptRoot -Parent
+  $sha = (& git -C $repo rev-parse --short HEAD 2>$null)
+  if ($sha) { $Version = "26.3-DEV-$sha" } else { $Version = '26.3-DEV-unknown' }
+}
 
 $tmp = "$Jar.tmp"
 if (Test-Path $tmp) { Remove-Item $tmp -Force }
@@ -17,10 +27,13 @@ if ($mfEntry) {
   $mfText = $r.ReadToEnd()
   $r.Dispose()
 }
+$mfText = $mfText -split "`r?`n" | Where-Object { $_ -notmatch '^LeafGale-' } | Join-String -Separator "`r`n"
 $mfText = $mfText.TrimEnd() + "`r`n"
-if ($mfText -notmatch 'Implementation-Version') {
+if ($mfText -match 'Implementation-Version:') {
+  $mfText = [regex]::Replace($mfText, 'Implementation-Version:.*', "Implementation-Version: $Version+$Flavor")
+} else {
   $mfText += "Implementation-Title: FHM-Core $Flavor`r`n"
-  $mfText += "Implementation-Version: 26.3-DEV-ecee149+$Flavor`r`n"
+  $mfText += "Implementation-Version: $Version+$Flavor`r`n"
 }
 $mfText += "LeafGale-Flavor: $Flavor`r`n"
 $mfText += "LeafGale-Built: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`n`r`n"

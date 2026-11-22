@@ -67,11 +67,13 @@ Gale 44 条更分散：TagKey 哈希、BitStorage、随机源、LevelTicks 这�
 
 ## 品牌
 
-`build.gradle.kts.patch` 里五个清单字段改成 FHM-Core，`Brand-Id` 改 `fhmcore:fhm`。`implementationVersion` 没动，还是 `26.3-DEV-ecee149`，外层再补 `+leafgale`。
+`build.gradle.kts.patch` 里五个清单字段改成 FHM-Core，`Brand-Id` 改 `fhmcore:fhm`。`implementationVersion` 交给构建自己算（跟着 Minecraft 工作树的 HEAD 走），打完包再由 `标记版本.ps1` 按当前提交重写一遍，后面补 `+leafgale`。
+
+早先这脚本里版本串是写死的 `26.3-DEV-ecee149`，仓库里跑几次之后就成了谎报，现在改成从 `git rev-parse --short HEAD` 取，也能用 `-Version` 手动指定。重复跑不会往清单里叠 `LeafGale-Flavor` 之类的行。
+
+改完起服第一行是 `[bootstrap] Loading FHM-Core 26.3-DEV-ver/26.3@<提交>`。
 
 `purpur.yml`、`/purpur`、`purpur.*` 权限这些没碰。改了名字好听，插件和权限组全得重配，不值。
-
-改完起服第一行是 `[bootstrap] Loading FHM-Core 26.3-DEV-ver/26.3@ecee149`。
 
 ## 登录期空指针（已修）
 
