@@ -153,7 +153,8 @@ Say "Release 建好：$($release.html_url)"
 
 function Send-Asset([string]$base, [string]$file, [string]$name, [string]$type) {
   # 附件名走 ASCII，中文名会被 GitHub 截掉一部分
-  $u = "$base?name=$([uri]::EscapeDataString($name))"
+  # ${base} 必须加花括号，否则 PowerShell 会把 "$base?name" 当成一个变量名，拼出 "=xxx"
+  $u = "${base}?name=$([uri]::EscapeDataString($name))"
   Invoke-RestMethod -Uri $u -Method Post -Headers @{ Authorization = "token $Token" } -ContentType $type -InFile $file -TimeoutSec 900 | Out-Null
 }
 
