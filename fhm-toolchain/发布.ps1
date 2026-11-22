@@ -36,8 +36,8 @@ function Say($m) { Write-Host $m }
 
 # ---------- 1. 版本号 ----------
 if (-not $Version) {
-  # 本地可能一个标签都没有（标签只推在远端），先拉一遍
-  & $git -C $repoDir fetch --tags --quiet 2>$null
+  # 本地可能一个标签都没有（标签只推在远端），先从发版仓库拉一遍；默认 origin 是上游 Purpur，不能用
+  & $git -C $repoDir fetch --tags --force --quiet "https://github.com/$Repo.git" 2>$null
   $old = & $git -C $repoDir tag -l '26.3-r*'
   $max = 0
   foreach ($t in $old) { if ($t -match '26\.3-r(\d+)$') { $n = [int]$Matches[1]; if ($n -gt $max) { $max = $n } } }
