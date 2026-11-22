@@ -83,6 +83,9 @@ $bmp = "$w\org\dreeam\leaf\util\BlockMasks.java"
 (Get-Content -LiteralPath $bmp -Raw) -replace 'i \|= FlowingFluid\.canHoldAnyFluid\(state\) \? CAN_HOLD_ANY_FLUID : 0;', '// canHoldAnyFluid 在 26.3 中为 private，跳过' | Set-Content -LiteralPath $bmp -Encoding utf8
 
 # SimulationFlag 垫片
+# 必须为 true：Gale 的"投机 tick"补丁（MinecraftServer 那段）没有合进来，没人会把 false 翻回 true。
+# 若这里是 false，ServerChunkCache.tick / LevelTicks / ActivationRange / Entity.tick 会整段 return，
+# 表现为服务端不加载也不发送区块、实体不更新，客户端只剩天空和云。
 New-Item -ItemType Directory -Force -Path "$w\org\galemc\gale\async" | Out-Null
 @'
 package org.galemc.gale.async;
@@ -90,7 +93,7 @@ package org.galemc.gale.async;
 public final class SimulationFlag {
     private SimulationFlag() {}
 
-    public static boolean REAL = false;
+    public static boolean REAL = true;
 }
 '@ | Set-Content -LiteralPath "$w\org\galemc\gale\async\SimulationFlag.java" -Encoding utf8
 

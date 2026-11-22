@@ -93,6 +93,14 @@ because the return value of "org.galemc.gale.configuration.GaleGlobalConfigurati
 
 验证是拿真包跑的。假客户端握手 → LoginStart，服务端打出 `UUID of player TestBot is 30fecbe1-...`，接着被白名单踢掉。能打出这行说明登录监听器正常跑，tickTimeout 那条栈没了。
 
+## 区块不加载（已修）
+
+症状：控制台一切正常，玩家进服后客户端只剩天空和云，客户端日志里有 `Timed out while waiting for the client to load chunks`，存档里几乎不落区块。
+
+原因：`gale-apply.ps1` 写的 SimulationFlag 垫片默认值是 `false`。Gale 的投机 tick 补丁（改 `MinecraftServer` 那段）本该在真正那次 tick 前把值翻回 `true`，这条补丁没合进来，值就一直停在 `false`。凡是带 `if (!SimulationFlag.REAL) return;` 的入口全部直接返回，包括 `ServerChunkCache.tick()`（区块加载、卸载、发给玩家）、`LevelTicks`、`ActivationRange`、`Entity.tick` 和 `ServerLevel` 的部分逻辑。forceload 走的是另一条路径，还能生成区块，所以看上去像是"只有玩家不加载区块"。
+
+修法：垫片默认值改成 `true`，重编。验证：假客户端进服 30 秒收到 401 个区块包（单个 30–67 KB），区域文件从 13 KB 涨到 3–4 MB；同一张图在 leaf 档和纯 Purpur 档的包量在同一量级。
+
 ## 还没做的
 
 TPS 对比没有。现在只能证明能起来、不报错，涨了多少性能没数。真要上生产，得拿原版 Purpur 跑同一张图、同样的在线人数，各采 30 分钟才算数。
