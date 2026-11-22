@@ -56,7 +56,11 @@ $sha256 = (Get-FileHash -LiteralPath $Jar -Algorithm SHA256).Hash.ToLower()
 $prevTag = ''
 $prev = & $git -C $repoDir tag -l '26.3-r*' | Sort-Object { if ($_ -match 'r(\d+)$') { [int]$Matches[1] } } | Select-Object -Last 1
 if ($prev) { $prevTag = $prev }
-$range = if ($prevTag) { "$prevTag..HEAD" } else { 'HEAD' }
+$range = if ($prevTag) { "$prevTag..HEAD" } else {
+  # 第一次发版：只算我们自己动过的提交，别把上游 Purpur 几百条历史全列进去
+  $first = & $git -C $repoDir log --author='XiaoYuan08-M' --reverse --format='%H' | Select-Object -First 1
+  if ($first) { "$first^..HEAD" } else { 'HEAD' }
+}
 
 $fixes = & $git -C $repoDir log --no-merges --pretty='- %s（%h）' --grep='^fix' $range
 $others = & $git -C $repoDir log --no-merges --pretty='- %s（%h）' $range | Where-Object { $_ -notmatch '^- fix' }
@@ -74,7 +78,7 @@ if ($SmokeLog -and (Test-Path -LiteralPath $SmokeLog)) {
 if ($smokeLines.Count -eq 0) { $smokeLines = @('- 本次未附冒烟日志，验证记录以手动测试为准') }
 
 $knownFile = Join-Path $repoDir 'docs\已知问题.md'
-$known = if (Test-Path $knownFile) { (Get-Content -LiteralPath $knownFile -Encoding utf8 | Select-Object -Skip 2) -join "`n" } else { '（没有维护已知问题清单）' }
+$known = if (Test-Path $knownFile) { ((Get-Content -LiteralPath $knownFile -Encoding utf8 | Select-Object -Skip 2) -join "`n") -replace '(?m)^## ', '### ' } else { '（没有维护已知问题清单）' }
 
 # ---------- 3. 报告 ----------
 $report = @"
@@ -82,7 +86,7 @@ $report = @"
 
 - 构建：$Flavor
 - 提交：$head（$branch）
-- 打包时间：$(Get-Date -Format 'yyyy-MM-dd HH:mm')
+- 打包：$((Get-Item -LiteralPath $Jar).LastWriteTime.ToString('yyyy-MM-dd HH:mm'))
 - 体积：$sizeMB MB
 - SHA256：``$sha256``
 
