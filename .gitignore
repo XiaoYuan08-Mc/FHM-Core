@@ -63,3 +63,7 @@ manifest.mf
 /purpur-checkstyle/build.gradle.kts
 *.jar
 test-plugin.settings.gradle.kts
+
+# FHM
+replay_pid*.log
+*.tmp
