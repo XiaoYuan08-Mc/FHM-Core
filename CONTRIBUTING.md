@@ -23,4 +23,4 @@
 
 ## 许可
 
-提交即同意按 MIT 发布（见 `LICENSE`），合进来的 Paper、Leaf、Gale 代码保留各自原许可。上游的贡献指南存档在 `CONTRIBUTING-PURPUR.md`，流程跟这边不一样，别照着做。
+提交即同意按 MIT 发布（见 `LICENSE`），合进来的 Paper、Leaf、Gale 代码保留各自原许可。

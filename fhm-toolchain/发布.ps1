@@ -17,7 +17,6 @@ param(
   [string]$Version = '',
   [string]$Repo = 'XiaoYuan08-Mc/FHM-Core',
   [string]$Token = '',
-  [string]$SmokeLog = '',
   [switch]$NoPush,
   [switch]$DryRun
 )

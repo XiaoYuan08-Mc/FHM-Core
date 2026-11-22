@@ -173,8 +173,7 @@ if ($Target -in @('both','gale') -and $results['leaf'] -ne $false) {
       if (-not $NoSmoke) { Invoke-Smoke $galeOut 'gale' | Out-Null }
       if ($Release) {
         Log '== [5] 发版'
-        $slog = Join-Path (Join-Path $OutDir 'gale-smoke') 'server.log'
-        & (Join-Path $here '发布.ps1') -Jar $galeOut -Flavor 'leafgale' -Token $Token -SmokeLog $slog
+        & (Join-Path $here '发布.ps1') -Jar $galeOut -Flavor 'leafgale' -Token $Token
       }
     } else { Log "Gale 档编译失败（$($r.Mode)），看 gale-build.log"; $results['gale'] = $false }
   }
